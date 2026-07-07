@@ -146,6 +146,21 @@
             gap: 0.4rem;
             align-items: center;
         }
+        /* .version-row is the new row above the bottom button bar that
+           holds the Update button (left) and the version text
+           (right). On phone the .row goes column-flex and the
+           button stacks above the version text. The version-text
+           is styled muted (smaller, dimmer) so it reads as
+           "informational, not actionable" next to the button. */
+        .version-row {
+            justify-content: space-between;
+            align-items: center;
+        }
+        .version-text {
+            color: #888;
+            font-size: 0.9rem;
+            font-family: monospace;
+        }
         .stop {
             background: #aa2222;
         }
@@ -279,15 +294,21 @@
         <div class="row">
             <a class="button" href="http://{{ host }}/">Wifi</a>
             <a class="button" href="http://{{ host }}/apps">Old Apps</a>
-            <form action="/update-from-server" method="post" onsubmit="return confirm('Pull the latest launcher code from the server and restart?\n\nThe launcher will be down for ~3s during the restart. Refresh your browser after.');">
-                <button>Update</button>
-            </form>
             <form action="/reboot-pi" method="post" onsubmit="return confirm('Reboot the g90 box now?\n\nThis will disconnect SSH, VNC, the launcher, node-portal, and any active QSOs / Reticulum sessions.\nGive it ~60s before reconnecting.');">
                 <button class="stop">Reboot</button>
             </form>
             <form action="/shutdown-pi" method="post" onsubmit="return confirm('Shut down the g90 box now?\n\nThis will power off the Pi. You will need to physically unplug and replug power (or use the UPS HAT button) to bring it back up.\n\nThis disconnects SSH, VNC, the launcher, node-portal, and any active QSOs / Reticulum sessions.');">
                 <button class="stop">Shutdown</button>
             </form>
+        </div>
+
+        <hr>
+
+        <div class="row version-row">
+            <form action="/update-from-server" method="post" onsubmit="return confirm('Pull the latest launcher code from the server and restart?\n\nThe launcher will be down for ~3s during the restart. Refresh your browser after.');">
+                <button>Update</button>
+            </form>
+            <span class="version-text">v{{ version }}</span>
         </div>
 
     </div>

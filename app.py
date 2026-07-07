@@ -50,6 +50,38 @@ def systemctl(action, *services):
     )
 
 
+def _get_launcher_version():
+    """Return the launcher's current version tag, e.g. 'v0.3'. The
+    tag is set on the bare repo at /home/pi/repos/g90-launcher.git
+    with each release; `git describe --tags --abbrev=0` returns the
+    most recent tag reachable from HEAD. If the working tree has
+    no tag reachable (e.g. fresh clone before any tag was pushed),
+    fall back to the short commit hash prefixed with 'g' so the
+    template can still show *something* useful."""
+    try:
+        out = subprocess.check_output(
+            ["git", "-C", "/home/pi/shared_launcher",
+             "describe", "--tags", "--abbrev=0"],
+            text=True, timeout=5,
+        ).strip()
+        if out:
+            return out
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+        pass
+    # fallback: short commit hash
+    try:
+        out = subprocess.check_output(
+            ["git", "-C", "/home/pi/shared_launcher",
+             "rev-parse", "--short", "HEAD"],
+            text=True, timeout=5,
+        ).strip()
+        if out:
+            return f"g{out}"
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+        pass
+    return "unknown"
+
+
 @app.route("/")
 def index():
     # Pills are laid out left-to-right in a flex-wrap container, so
@@ -93,6 +125,7 @@ def index():
         status=status,
         host=request.host.split(":")[0],
         vnc_ws_port=VNC_WS_PORT,
+        version=_get_launcher_version(),
     )
 
 
