@@ -385,6 +385,80 @@ def shutdown_pi():
             "physically power it back on to reconnect.</p>")
 
 
+@app.route("/update-from-server", methods=["POST"])
+def update_from_server():
+    """Pull the latest from the central repo at
+    pi@nomadpi.local:/home/pi/repos/g90-launcher.git and
+    restart the launcher service. The g90 is a clone of
+    that repo, so a `git pull --ff-only` brings in any
+    new commits the workspace has pushed.
+
+    The button has a JS confirm() so accidental clicks
+    don't restart the launcher mid-session. After the
+    pull + restart, the page renders a status block
+    showing what changed (or "Already up to date").
+
+    Failure modes:
+    - Network/SSH down: git pull errors, we surface
+      the error in the page. Launcher stays on the
+      current code.
+    - Local divergence (someone edited on the g90):
+      --ff-only rejects the pull, we surface the
+      error. Launcher stays on the current code.
+    - Restart fails: service goes down. User has to
+      SSH in and `sudo systemctl start
+      g90-shared-launcher.service` manually.
+    """
+    import subprocess
+    # 1. pull (--ff-only refuses if there are local commits)
+    pull = subprocess.run(
+        ["git", "-C", "/home/pi/shared_launcher",
+         "pull", "--ff-only", "origin", "master"],
+        capture_output=True, text=True, timeout=30,
+    )
+    if pull.returncode != 0:
+        return (
+            "<h1>Update failed</h1>"
+            "<p>git pull returned non-zero. The launcher is still "
+            "running on the previous code. Common causes:</p>"
+            "<ul>"
+            "<li>Network/SSH to the nomadpi is down</li>"
+            "<li>Local edits on this g90 (--ff-only refuses "
+            "non-fast-forward pulls)</li>"
+            "</ul>"
+            "<pre style='background:#1a1a1a;color:#ddd;padding:1em;'>"
+            + pull.stdout.replace("<", "&lt;") + "\n"
+            + pull.stderr.replace("<", "&lt;") +
+            "</pre>"
+            "<p><a href='/'>Back to launcher</a></p>"
+        )
+    # 2. restart the service. The old process exits, the
+    # service comes back with the new code. The user's
+    # browser will lose the connection mid-load and
+    # they'll need to refresh.
+    subprocess.Popen(
+        ["sudo", "-n", "systemctl", "restart",
+         "g90-shared-launcher.service"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        start_new_session=True,
+    )
+    # Give the service a moment to start, then build the page
+    import time
+    time.sleep(2)
+    return (
+        "<h1>Updated</h1>"
+        "<p>git pull succeeded and the launcher service was "
+        "restarted. <strong>Refresh your browser</strong> to "
+        "load the new code.</p>"
+        "<h2>git pull output</h2>"
+        "<pre style='background:#1a1a1a;color:#ddd;padding:1em;'>"
+        + (pull.stdout or "(no output — already up to date)").replace("<", "&lt;") +
+        "</pre>"
+        "<p><a href='/'>Back to launcher</a></p>"
+    )
+
+
 if __name__ == "__main__":
     # Listen on 0.0.0.0:8090. Same port as the sbitx box's my-launcher so
     # the experience is consistent across the two boxes (and bookmarks work
