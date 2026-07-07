@@ -1,0 +1,21 @@
+# backup files (we have .bak-XXXX snapshots already, no need to commit them)
+*.bak-*
+*.bak
+
+# python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# editor / OS noise
+.DS_Store
+*.swp
+*~
+.idea/
+.vscode/
+
+# session-specific (memory_search uses these but not for code)
+*.pid
+*.sock

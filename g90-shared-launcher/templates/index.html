@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>G90 Shared Launcher</title>
+    <!-- Auto-refresh every 3 seconds so the status pills reflect
+         transient state changes (e.g. a Stop click that takes 1-2s
+         to fully kill the target process). -->
+    <meta http-equiv="refresh" content="3">
+    <style>
+        body {
+            background: #1a1a1a;
+            color: #ddd;
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 1rem;
+        }
+        h1 {
+            color: white;
+        }
+        .panel {
+            max-width: 460px;
+            margin: auto;
+            background: #2a2a2a;
+            border: 1px solid #444;
+            border-radius: 6px;
+            padding: 1rem;
+        }
+
+        /* Phone layout: stack rows vertically, stretch buttons full-width.
+           Sizes roughly 2x the desktop defaults so taps are easy and text
+           is comfortable to read at arm's length on a phone. */
+        @media (max-width: 640px) {
+            body {
+                padding: 0.5rem;
+                font-size: 1.4rem;        /* base up from 1rem (browser default 16px) */
+            }
+            .panel {
+                max-width: 100%;
+                padding: 1rem;
+                border-radius: 8px;
+            }
+            .status-bar {
+                gap: 0.5rem;
+                margin: 0 0 1rem 0;
+                justify-content: center;
+            }
+            .status-item {
+                padding: 0.5rem 0.8rem;
+                font-size: 1rem;
+            }
+            .row {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 0.6rem;
+                margin: 1rem 0;
+            }
+            .name {
+                text-align: center;
+                font-size: 1.2rem;
+                font-weight: bold;
+            }
+            button, a.button {
+                min-width: 0;
+                width: 100%;
+                padding: 1rem 1rem;
+                font-size: 1.3rem;
+                border-radius: 6px;
+            }
+            form { display: contents; }
+            hr { margin: 1rem 0; border-color: #444; }
+            h1 { font-size: 1.6rem; margin-bottom: 0.7rem; }
+            p.note, .note { font-size: 1rem; line-height: 1.5; }
+        }
+        .row {
+            display: flex;
+            justify-content: space-between;
+            gap: 0.5rem;
+            margin: 0.7rem 0;
+            align-items: center;
+        }
+        .name {
+            flex: 1;
+            text-align: left;
+            font-weight: bold;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 0.4rem;
+            align-items: center;
+        }
+        /* Forms are used to wrap POST buttons (Start/Stop/Reboot/Shutdown)
+           inline next to Open links. Without this, the form takes its own
+           line on desktop (block default) and the row's flex layout breaks.
+           Phone media query below also sets this; setting it at base so
+           desktop gets the same behavior. */
+        form { display: contents; }
+        button, a.button {
+            background: #0066cc;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 0.6rem 0.8rem;
+            text-decoration: none;
+            min-width: 80px;
+            font-weight: bold;
+        }
+        /* Help-page link styled to match the other app names. The
+           text color, font, and weight are the same as .name, so the
+           row label reads as a label. The cursor changes to a pointer
+           on hover (default <a> behavior) to signal that the label is
+           clickable. Width is set to fit "JS8Call" (the longest of
+           the four labels) plus a small cursor-target margin; labels
+           shorter than that sit flush-left. Used on the FLrig /
+           JS8Call / FLDigi / WSJT-X row names to link to the
+           corresponding node-portal /help/<app> pages. */
+        a.help-link {
+            display: inline-block;
+            background: #2a2a2a;     /* matches the .panel background */
+            color: #ddd;             /* same as .name (inherits from body) */
+            border: none;            /* no border; the cursor-on-hover is the signal */
+            border-radius: 0;
+            padding: 0.4rem 0.6rem;
+            font-weight: bold;
+            text-decoration: none;
+            text-align: left;
+            width: 7ch;              /* fits "JS8Call" with a little room to spare */
+            min-width: 0;
+            flex: 0 0 auto;          /* don't grow to fill — labels shorter than 7ch sit flush-left */
+        }
+        a.help-link:hover {
+            text-decoration: underline;
+        }
+        /* .row-buttons wraps the Start + Stop forms on the help-link
+           rows (FLrig / JS8Call / FLDigi / WSJT-X). On desktop the
+           span is a horizontal flex container with a small gap; on
+           phone (column flex on the parent .row) the span keeps
+           the buttons paired horizontally rather than stacking
+           them vertically. Without this wrapper, the row's
+           flex-direction: column on phone would put Start and Stop
+           on separate full-width rows. */
+        .row-buttons {
+            display: flex;
+            gap: 0.4rem;
+            align-items: center;
+        }
+        .stop {
+            background: #aa2222;
+        }
+        .reticulum {
+            background: #228822;
+        }
+
+        .status-bar {
+            max-width: 760px;
+            margin: 0 auto 1rem auto;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.4rem;
+            justify-content: center;
+        }
+
+        .status-item {
+            padding: 0.35rem 0.55rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+
+        .running {
+            background: #174f17;
+            color: #b8ffb8;
+            border: 1px solid #2ecc71;
+        }
+
+        .stopped {
+            background: #4f1717;
+            color: #ffb8b8;
+            border: 1px solid #cc3333;
+        }
+    </style>
+</head>
+<body>
+    <h1>G90 Shared Launcher</h1>
+
+    <div class="status-bar">
+        {% for name, running in status.items() %}
+            <span class="status-item {{ 'running' if running else 'stopped' }}">
+                {{ name }}: {{ 'Running' if running else 'Stopped' }}
+            </span>
+        {% endfor %}
+    </div>
+
+    <div class="panel">
+
+        <div class="row">
+            <div class="name">Open VNC Tab</div>
+            <a class="button" target="_blank" href="http://{{ host }}:{{ vnc_ws_port }}/vnc_auto.html?autoconnect=true&resize=remote&clip=1&quality=8&compression=0&password=***&view_only=0&shared=1&reconnect=true&reconnect_delay=1000&retry_count=60">Open</a>
+        </div>
+
+        <hr>
+
+        <div class="row">
+            <a class="help-link" target="_blank" href="http://{{ host }}/help/flrig" title="FLrig Help Page">FLrig</a>
+            <span class="row-buttons">
+                <form action="/start-flrig" method="post"><button>Start</button></form>
+                <form action="/stop-flrig" method="post"><button class="stop">Stop</button></form>
+            </span>
+        </div>
+
+        <div class="row">
+            <a class="help-link" target="_blank" href="http://{{ host }}/help/js8call" title="JS8Call Help Page">JS8Call</a>
+            <span class="row-buttons">
+                <form action="/start-js8call" method="post"><button>Start</button></form>
+                <form action="/stop-js8call" method="post"><button class="stop">Stop</button></form>
+            </span>
+        </div>
+
+        <div class="row">
+            <a class="help-link" target="_blank" href="http://{{ host }}/help/fldigi" title="FLDigi Help Page">FLDigi</a>
+            <span class="row-buttons">
+                <form action="/start-fldigi" method="post"><button>Start</button></form>
+                <form action="/stop-fldigi" method="post"><button class="stop">Stop</button></form>
+            </span>
+        </div>
+
+        <div class="row">
+            <a class="help-link" target="_blank" href="http://{{ host }}/help/wsjtx" title="WSJT-X Help Page">WSJT-X</a>
+            <span class="row-buttons">
+                <form action="/start-wsjtx" method="post"><button>Start</button></form>
+                <form action="/stop-wsjtx" method="post"><button class="stop">Stop</button></form>
+            </span>
+        </div>
+
+        <div class="row">
+            <div class="name">Pat Menu</div>
+            <a class="button" target="_blank" href="http://{{ host }}:5000/ui">Pat UI</a>
+            <form action="/start-patmenu" method="post"><button>Start</button></form>
+            <form action="/stop-patmenu" method="post"><button class="stop">Stop</button></form>
+        </div>
+
+        <div class="row">
+            <div class="name">Pavucontrol</div>
+            <form action="/start-pavucontrol" method="post"><button>Start</button></form>
+            <form action="/stop-pavucontrol" method="post"><button class="stop">Stop</button></form>
+        </div>
+
+        <div class="row">
+            <div class="name">Reset Audio Devices</div>
+            <form action="/reset-audio" method="post" onsubmit="return confirm('Reset the audio device stack?\n\nThis will:\n  - Stop the Reticulum stack (rnsd + meshchat + freedvtnc2)\n  - Restart the noVNC session (Xvfb + x11vnc + websockify on :6080)\n\nThe shared launcher will be unreachable for ~5s while the noVNC session restarts. Click OK to proceed.');">
+                <button class="stop">Reset</button>
+            </form>
+        </div>
+
+        <hr>
+
+        <div class="row">
+            <div class="name">Reticulum Stack</div>
+            <form action="/start-reticulum" method="post"><button class="reticulum">Start</button></form>
+            <form action="/stop-reticulum" method="post"><button class="stop">Stop</button></form>
+        </div>
+
+        <div class="row">
+            <div class="name">MeshChat</div>
+            <a class="button" target="_blank" href="http://{{ host }}:8000/">Open</a>
+            <form action="/restart-reticulum" method="post"><button>Restart</button></form>
+        </div>
+
+        <div class="row">
+            <div class="name">FreeDVtnc2</div>
+            <form action="/start-freedv-tui" method="post"><button>Start</button></form>
+            <form action="/stop-freedv-tui" method="post"><button class="stop">Stop</button></form>
+        </div>
+
+        <hr>
+
+        <div class="row">
+            <a class="button" href="http://{{ host }}/">Wifi</a>
+            <a class="button" href="http://{{ host }}/apps">Old Apps</a>
+            <form action="/reboot-pi" method="post" onsubmit="return confirm('Reboot the g90 box now?\n\nThis will disconnect SSH, VNC, the launcher, node-portal, and any active QSOs / Reticulum sessions.\nGive it ~60s before reconnecting.');">
+                <button class="stop">Reboot</button>
+            </form>
+            <form action="/shutdown-pi" method="post" onsubmit="return confirm('Shut down the g90 box now?\n\nThis will power off the Pi. You will need to physically unplug and replug power (or use the UPS HAT button) to bring it back up.\n\nThis disconnects SSH, VNC, the launcher, node-portal, and any active QSOs / Reticulum sessions.');">
+                <button class="stop">Shutdown</button>
+            </form>
+        </div>
+
+    </div>
+</body>
+</html>

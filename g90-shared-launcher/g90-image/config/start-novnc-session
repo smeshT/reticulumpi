@@ -1,0 +1,14 @@
+#!/bin/bash
+
+export DISPLAY=:1
+
+Xvfb :1 -screen 0 1280x800x24 &
+sleep 1
+
+openbox &
+sleep 1
+
+x11vnc -display :1 -forever -shared -nopw &
+sleep 1
+
+exec websockify --web=/usr/share/novnc/ 6080 localhost:5900

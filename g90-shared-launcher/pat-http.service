@@ -1,0 +1,38 @@
+[Unit]
+# /etc/systemd/system/pat-http.service
+# System-wide systemd service for the g90 box's pat (Winlink) web UI.
+#
+# pat-winlink is the Go-built Debian package (apt: pat). It serves a
+# browser-based Winlink inbox at http://<host>:5000/ui. The g90's
+# shared launcher has a row that links to this URL.
+#
+# This service is independent of any modem (piardopc, freedvtnc2).
+# The web UI is useful even without a radio: it can compose, save
+# drafts, and (with internet) connect via Telnet to a CMS. Once the
+# G90 is plugged in and piardopc is running on :8515, pat will use
+# ARDOP automatically.
+#
+# Config lives at /home/pi/.config/pat/config.json (the pat default
+# path on bookworm; the older ~/.wl2k/ path was migrated by pat on
+# first run). Edit with `pat configure` (opens $EDITOR) or by hand.
+# mycall must be non-empty or pat refuses to start.
+
+[Unit]
+Description=Pat Winlink web UI (pat-winlink http --addr :5000)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/home/pi
+Environment=HOME=/home/pi
+# http_addr in config.json controls the listen address; we set it to
+# :5000 so it matches the launcher's link and the sbitx box's port.
+ExecStart=/usr/bin/pat-winlink http
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

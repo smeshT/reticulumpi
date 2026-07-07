@@ -1,0 +1,22 @@
+[Unit]
+# /etc/systemd/system/g90-shared-launcher.service
+# Parallel "shared launcher" Flask app for the g90 box. Listens on :8090
+# (same port as sbitx's my-launcher for cross-box consistency).
+#
+# This is a sibling of the sbitx box's /home/pi/my_launcher. It runs
+# alongside the g90 box's node-portal (which serves the WiFi setup
+# page on :80); the two apps do not share state.
+
+[Unit]
+Description=G90 Shared Launcher
+After=network.target
+
+[Service]
+User=pi
+WorkingDirectory=/home/pi/shared_launcher
+ExecStart=/usr/bin/python3 /home/pi/shared_launcher/app.py
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

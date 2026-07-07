@@ -1,0 +1,45 @@
+<!doctype html>
+<html>
+<head>
+    <title>Select WiFi</title>
+</head>
+
+<body>
+
+<h1>Select WiFi Network</h1>
+
+<form action="/connect" method="post">
+
+    <label for="ssid">WiFi Network:</label>
+
+    <select name="ssid" id="ssid">
+        {% for network in networks %}
+            <option value="{{ network }}">{{ network }}</option>
+        {% endfor %}
+    </select>
+
+    <input> type="password" name="password" id="password"</input>
+
+    <br><br>
+
+    <label for="password">Password:</label>
+    <input type="password" name="password" id="password">
+
+    <br><br>
+
+    <button type="submit">Connect</button>
+
+</form>
+
+<br>
+
+<form action="/skip" method="post">
+    <button type="submit">Use Local Access Point Only</button>
+</form>
+
+<br>
+
+<a href="/">Back</a>
+
+</body>
+</html>
