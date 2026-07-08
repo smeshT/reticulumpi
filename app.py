@@ -20,6 +20,32 @@ def is_running(cmd):
     ).returncode == 0
 
 
+def is_running_proc_with_arg(proc_name, needle):
+    """Check if a process whose name is `proc_name` (matched via
+    `pgrep -x`, exact basename) is running AND has `needle` somewhere
+    in its command line. This avoids the pgrep self-match bug: the
+    plain `pgrep -f needle` will match its own bash wrapper, but
+    `pgrep -x proc_name` matches the actual program, and then we
+    look up the cmdline directly via /proc/PID/cmdline.
+    """
+    import os
+    out = subprocess.run(
+        ["pgrep", "-x", proc_name],
+        capture_output=True, text=True
+    ).stdout.strip()
+    if not out:
+        return False
+    for pid in out.splitlines():
+        try:
+            with open(f"/proc/{pid}/cmdline", "rb") as f:
+                cmdline = f.read().replace(b"\x00", b" ").decode("utf-8", errors="replace")
+            if needle in cmdline:
+                return True
+        except (FileNotFoundError, ProcessLookupError, PermissionError):
+            continue
+    return False
+
+
 def service_active(name):
     return subprocess.run(
         ["systemctl", "is-active", "--quiet", name],
@@ -113,12 +139,12 @@ def index():
         # patmenu2/pmlogo.png is present in every patmenu2 yad dialog
         # (main menu, callsign-check dialog, sub-dialogs) and is
         # not a substring of any other process on the box.
-        "Pat Menu": is_running("patmenu2/pmlogo.png"),
+        "Pat Menu": is_running_proc_with_arg("yad", "patmenu2/pmlogo.png"),
         "Pat": service_active("pat-http.service"),
         "RNS": service_active("reticulumhf-rnsd.service"),
         "MeshChat": service_active("reticulum-meshchat.service"),
         "FreeDV TNC": service_active("freedvtnc2.service")
-                     or is_running("lxterminal --title=freedvtnc2"),
+                     or is_running_proc_with_arg("lxterminal", "--title=freedvtnc2"),
     }
     return render_template(
         "index.html",
