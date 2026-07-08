@@ -1,0 +1,62 @@
+# slate-sudoers — amendment requested 2026-06-29
+#
+# This file is the proposed diff to /etc/sudoers.d/020_slate to give
+# Slate NOPASSWD access to manage timesheet-web.service. Permission asked
+# for explicitly by Jack in chat 2026-06-29 19:21, after repeated
+# "orphaned-nohup" incidents where I had to fall back to starting the
+# Flask app outside systemd because I couldn't `systemctl restart`.
+#
+# To apply:
+#   sudo -e /etc/sudoers.d/020_slate
+# (opens the live file in your editor)
+#
+# In the editor:
+#   1. Append the new alias block below.
+#   2. Add SLATE_TIMESHEET to the comma-separated NOPASSWD list at the
+#      bottom of the file (so it sits next to SLATE_PKG, SLATE_SVC, ...).
+#   3. Save and exit. sudo runs visudo -c on it before installing.
+#
+# What this grants (and does NOT grant):
+#   - systemd verbs for ONE unit: timesheet-web.service
+#   - daemon-reload, so I can apply a unit-file edit without you
+#   - read-side is-active/is-failed/status/show
+#   - edit verbs: NONE (I won't `edit`, `cat`, or `tee` a unit file
+#     from this scope — those would be a different grant)
+#   - verbs that touch other services: NONE
+#   - verbs that bypass the unit boundary (`systemctl --no-ask-password`,
+#     `systemctl kill`, `systemctl mask`, `systemctl set-property`):
+#     NONE
+#
+# Why I want this and not just bash the timesheet harder:
+#   - I'm not the only thing managing that port; when systemd is in a
+#     failed state because of a start-restart-too-quickly loop,
+#     `systemctl reset-failed` is the only safe way out, and I need sudo
+#     for that
+#   - The "bounce for a code edit" path is currently `kill -TERM PID &&
+#     nohup app.py &` which created an orphan this session at 18:58;
+#     that's a memory leak (in the operational sense) of the same bug
+#     twice in one day
+#   - Kill switch is the existing `slate-revoke.sh` -- removing this
+#     file leaves everything else intact
+
+# --- Service management: only timesheet-web.service, only the verbs
+#     we actually need (incl. daemon-reload for unit-file changes
+#     Jack applies; granted 2026-06-29) ---
+Cmnd_Alias SLATE_TIMESHEET = /usr/bin/systemctl restart timesheet-web.service, \
+                             /usr/bin/systemctl start timesheet-web.service, \
+                             /usr/bin/systemctl stop timesheet-web.service, \
+                             /usr/bin/systemctl status timesheet-web.service, \
+                             /usr/bin/systemctl is-active timesheet-web.service, \
+                             /usr/bin/systemctl is-failed timesheet-web.service, \
+                             /usr/bin/systemctl reset-failed timesheet-web.service, \
+                             /usr/bin/systemctl show timesheet-web.service, \
+                             /usr/bin/systemctl daemon-reload
+
+# Apply this by changing the existing bottom-of-file line from:
+#   pi ALL=(root) NOPASSWD: SLATE_PKG, SLATE_SVC, SLATE_CONF, SLATE_USR, SLATE_FW
+# to:
+#   pi ALL=(root) NOPASSWD: SLATE_PKG, SLATE_SVC, SLATE_CONF, SLATE_USR, SLATE_FW, SLATE_TIMESHEET
+
+# Test it (you):
+#   sudo -n systemctl is-active timesheet-web.service   # 0 or 3, no password
+#   sudo -n systemctl daemon-reload                       # 0, no password
