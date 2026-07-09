@@ -1,9 +1,25 @@
 from flask import Flask, render_template, redirect, url_for, request
 import subprocess
+import os
+import re
 
 app = Flask(__name__)
 
-SCRIPTS = "/home/pi/shared_launcher/scripts"
+# On the real g90 boxes, the launcher lives at /home/pi/shared_launcher
+# and the systemd unit is g90-shared-launcher.service. On the nomadpi's
+# test sled, both are different (the work tree is on the USB stick, the
+# service is g90-test-launcher.service). Override via env at startup.
+LAUNCHER_DIR = os.environ.get(
+    "LAUNCHER_DIR", "/home/pi/shared_launcher"
+)
+LAUNCHER_SERVICE = os.environ.get(
+    "LAUNCHER_SERVICE", "g90-shared-launcher.service"
+)
+
+# SCRIPTS = LAUNCHER_DIR/scripts (env-overridable for the test sled)
+# so run_script() works in both /home/pi/shared_launcher (real g90)
+# and /media/pi/.../g90-test-sled/work (nomadpi test sled).
+SCRIPTS = os.path.join(LAUNCHER_DIR, "scripts")
 
 # G90 VNC stack: Xvfb :1 (started by node-portal's own services), x11vnc on
 # 5900, websockify on 6080. The shared launcher does NOT start its own
@@ -76,6 +92,120 @@ def systemctl(action, *services):
     )
 
 
+def get_lan_ip():
+    """Return the box's primary LAN IPv4 address, or None if none.
+
+    Strategy: read `hostname -I` (all non-loopback IPv4 addresses,
+    space-separated) and pick the first one that isn't in the AP
+    range (192.168.4.0/24) and isn't a ZeroTier address (10.0.0.0/8
+    is the most common ZT range, but ZT can also use 192.168.x.x
+    blocks depending on controller config — we filter both just in
+    case). On the g90 box this is the eth0 DHCP address. On the
+    nomadpi it's whatever the home router gave us.
+
+    Returns None if no suitable interface is up (e.g. the box just
+    booted and DHCP hasn't completed yet)."""
+    try:
+        out = subprocess.check_output(["hostname", "-I"], text=True).strip()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return None
+    for ip in out.split():
+        if ip.startswith("127."):
+            continue
+        if ip.startswith("192.168.4."):
+            # AP-only range; not the LAN
+            continue
+        if ip.startswith("10."):
+            # Common ZeroTier range. Skip — get_zerotier_ip() handles
+            # ZT display separately.
+            continue
+        return ip
+    return None
+
+
+def get_zerotier_ip():
+    """Return the box's ZeroTier IPv4 address, or None if not joined
+    to any ZT network.
+
+    Strategy: list the kernel's IPv4 addresses via `ip -4 -o addr
+    show` (the `-o` flag gives one-line-per-address output that's
+    easy to parse), find the first interface whose name starts
+    with `zt` (ZeroTier's interface-naming convention: every ZT
+    interface is named `zt<10-hex-char-network-id-prefix>`), and
+    return its `inet` address.
+
+    The `ip -o` format is `INDEX: IFRNAME<spaces>INET...` — note
+    only ONE colon, after the index. We split on the FIRST colon
+    only and take the rest as the iface name + address data."""
+
+    try:
+        out = subprocess.check_output(
+            ["ip", "-4", "-o", "addr", "show"], text=True
+        )
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return None
+    for line in out.splitlines():
+        # "5: zttqh5myou    inet 10.59.42.91/24 ..."
+        if ":" not in line:
+            continue
+        # Split only on the first colon
+        idx, rest = line.split(":", 1)
+        # Ifrname is the first whitespace-delimited token in `rest`
+        ifname = rest.split()[0] if rest.split() else ""
+        if not ifname.startswith("zt"):
+            continue
+        m = re.search(r"inet (\S+)", rest)
+        if m:
+            return m.group(1).split("/")[0]
+    return None
+
+
+def get_zerotier_network_id():
+    """Return the full 16-hex-char ZeroTier network ID this box is
+    a member of, or None if not joined.
+
+    Strategy: list the contents of /var/lib/zerotier-one/networks.d/;
+    each joined network has a `<nwid>.conf` file (and a sibling
+    `<nwid>.local.conf` for local overrides). The full network ID
+    is also stored inside the .conf file as `nwid=<hex>` on its
+    first line, which is robust against future ZT versions that
+    might change directory layout.
+
+    The directory is mode 0755 zerotier-one:zerotier-one and the
+    .conf files are mode 0644 — readable by any user, no privilege
+    change needed.
+
+    The .conf file's first line is `v=<protocol-version>`; the
+    `nwid=<hex>` line is the second. We read the first two lines
+    to find nwid and stop there because the rest of the file is
+    binary-encoded state."""
+    ndir = "/var/lib/zerotier-one/networks.d"
+    if not os.path.isdir(ndir):
+        return None
+    try:
+        for fn in os.listdir(ndir):
+            if fn.endswith(".local.conf"):
+                continue
+            if not fn.endswith(".conf"):
+                continue
+            with open(os.path.join(ndir, fn), "rb") as f:
+                head = b""
+                for _ in range(3):
+                    line = f.readline()
+                    if not line:
+                        break
+                    head += line
+                    if b"nwid=" in line:
+                        break
+            text = head.decode("utf-8", errors="replace")
+            for line in text.splitlines():
+                if line.startswith("nwid="):
+                    return line[5:].strip()
+    except (OSError, IOError):
+        return None
+    return None
+
+
 def _get_launcher_version():
     """Return the launcher's current version tag, e.g. 'v0.3'. The
     tag is set on the bare repo at /home/pi/repos/g90-launcher.git
@@ -86,7 +216,7 @@ def _get_launcher_version():
     template can still show *something* useful."""
     try:
         out = subprocess.check_output(
-            ["git", "-C", "/home/pi/shared_launcher",
+            ["git", "-C", LAUNCHER_DIR,
              "describe", "--tags", "--abbrev=0"],
             text=True, timeout=5,
         ).strip()
@@ -97,7 +227,7 @@ def _get_launcher_version():
     # fallback: short commit hash
     try:
         out = subprocess.check_output(
-            ["git", "-C", "/home/pi/shared_launcher",
+            ["git", "-C", LAUNCHER_DIR,
              "rev-parse", "--short", "HEAD"],
             text=True, timeout=5,
         ).strip()
@@ -145,6 +275,13 @@ def index():
         "MeshChat": service_active("reticulum-meshchat.service"),
         "FreeDV TNC": service_active("freedvtnc2.service")
                      or is_running_proc_with_arg("lxterminal", "--title=freedvtnc2"),
+        # freeDV Waterfall (diagnostic spectrogram) — green iff an
+        # lxterminal with --title=freedv-waterfall is open. The
+        # is_running_proc_with_arg helper avoids the pgrep self-match
+        # bug: the bare pattern "--title=freedv-waterfall" is in the
+        # caller's argv (we set it in start_waterfall.sh), so
+        # pgrep -f would match this Python process.
+        "Waterfall": is_running_proc_with_arg("lxterminal", "--title=freedv-waterfall"),
     }
     return render_template(
         "index.html",
@@ -152,6 +289,8 @@ def index():
         host=request.host.split(":")[0],
         vnc_ws_port=VNC_WS_PORT,
         version=_get_launcher_version(),
+        lan_ip=get_lan_ip(),
+        zt_ip=get_zerotier_ip(),
     )
 
 
@@ -206,6 +345,39 @@ def stop_flrig():
 @app.route("/start-pavucontrol", methods=["POST"])
 def start_pavucontrol():
     run_script("start_pavucontrol.sh")
+    return redirect(url_for("index"))
+
+
+@app.route("/start-waterfall", methods=["POST"])
+def start_waterfall():
+    """Open the freeDV Waterfall diagnostic terminal. Mirrors
+    start-freedv-tui but does NOT stop freedvtnc2 first: the
+    waterfall reads from the "g90audio" dsnoop device (defined
+    in /etc/asound.conf), so the TNC and the waterfall can hold
+    the G90 audio open simultaneously. That's the whole point
+    of having it as a diagnostic — you can see the spectrum
+    while the Reticulum stack is up and active, without having
+    to tear anything down.
+
+    The audio-device pre-flight lives in start_waterfall.sh
+    (same non-fragile UX as freedv_tui.sh: if the G90 isn't
+    plugged in, the script opens the terminal with a clear
+    "plug in the G90" message instead of letting the Python
+    tool fail with an opaque ALSA error)."""
+    run_script("start_waterfall.sh")
+    return redirect(url_for("index"))
+
+
+@app.route("/stop-waterfall", methods=["POST"])
+def stop_waterfall():
+    """Close the freeDV Waterfall lxterminal. Same pattern as
+    stop-freedv-tui: kill by --title match so we don't touch
+    other lxterminals the user has open on the desktop."""
+    subprocess.Popen(
+        ["pkill", "-f", "lxterminal.*--title=freedv-waterfall"],
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        start_new_session=True,
+    )
     return redirect(url_for("index"))
 
 
@@ -471,7 +643,7 @@ def update_from_server():
     import subprocess
     # 1. pull (--ff-only refuses if there are local commits)
     pull = subprocess.run(
-        ["git", "-C", "/home/pi/shared_launcher",
+        ["git", "-C", LAUNCHER_DIR,
          "pull", "--ff-only", "origin", "master"],
         capture_output=True, text=True, timeout=30,
     )
@@ -497,7 +669,7 @@ def update_from_server():
     # they'll need to refresh.
     subprocess.Popen(
         ["sudo", "-n", "systemctl", "restart",
-         "g90-shared-launcher.service"],
+         LAUNCHER_SERVICE],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
         start_new_session=True,
@@ -519,8 +691,9 @@ def update_from_server():
 
 
 if __name__ == "__main__":
-    # Listen on 0.0.0.0:8090. Same port as the sbitx box's my-launcher so
-    # the experience is consistent across the two boxes (and bookmarks work
-    # the same). The g90 box's noVNC is on 6080 (vs sbitx 6100); the index
-    # template embeds vnc_ws_port so the VNC tab link matches.
-    app.run(host="0.0.0.0", port=8090)
+    # Listen on 0.0.0.0:80 (the home page for the g90). On the nomadpi
+    # test sled, override via LAUNCHER_PORT=9090. The port assignment
+    # is also why this file has the env-var override pattern: the
+    # g90-test-launcher.service runs the same code on a different port.
+    port = int(os.environ.get("LAUNCHER_PORT", "80"))
+    app.run(host="0.0.0.0", port=port)

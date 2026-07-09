@@ -184,6 +184,30 @@
             font-weight: bold;
         }
 
+        /* .network-bar mirrors .status-bar visually but is muted
+           (neutral gray, no green/red) so it doesn't compete with
+           the running/stopped pills for attention. The user looks
+           here for WHERE the box is, not WHAT is running on it.
+           Hidden by a Jinja conditional in index.html when both
+           addresses are missing. */
+        .network-bar {
+            max-width: 760px;
+            margin: 0 auto 0.6rem auto;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.4rem;
+            justify-content: center;
+        }
+        .network-item {
+            padding: 0.3rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-family: monospace;
+            background: #2a2a2a;
+            color: #bbb;
+            border: 1px solid #444;
+        }
+
         .running {
             background: #174f17;
             color: #b8ffb8;
@@ -199,6 +223,13 @@
 </head>
 <body>
     <h1>G90 Shared Launcher</h1>
+
+    {% if lan_ip or zt_ip %}
+    <div class="network-bar">
+        {% if lan_ip %}<span class="network-item">LAN: {{ lan_ip }}</span>{% endif %}
+        {% if zt_ip %}<span class="network-item">ZeroTier: {{ zt_ip }}</span>{% endif %}
+    </div>
+    {% endif %}
 
     <div class="status-bar">
         {% for name, running in status.items() %}
@@ -260,6 +291,12 @@
             <div class="name">Pavucontrol</div>
             <form action="/start-pavucontrol" method="post"><button>Start</button></form>
             <form action="/stop-pavucontrol" method="post"><button class="stop">Stop</button></form>
+        </div>
+
+        <div class="row">
+            <div class="name">freeDV Waterfall</div>
+            <form action="/start-waterfall" method="post"><button>Start</button></form>
+            <form action="/stop-waterfall" method="post"><button class="stop">Stop</button></form>
         </div>
 
         <div class="row">
