@@ -1,8 +1,101 @@
 from flask import Flask, render_template, request, redirect
 import subprocess
+import socket
+import os
 import time
 
 app = Flask(__name__)
+
+
+def get_ap_name():
+    # AP SSID is the hostname + "-AP" suffix. Read from the box itself
+    # so the same code runs unchanged on g90digi, g90f1r2, and any
+    # future unit named after its role.
+    return f"{socket.gethostname()}-AP"
+
+
+def get_hostname():
+    return socket.gethostname()
+
+
+def get_lan_ip():
+    """Return the box's primary LAN IPv4 address, or None if none.
+
+    Mirrors the launcher's helper. Picks the first non-loopback,
+    non-AP, non-ZeroTier IPv4 from `hostname -I`."""
+    try:
+        out = subprocess.check_output(["hostname", "-I"], text=True).strip()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return None
+    for ip in out.split():
+        if ip.startswith("127."):
+            continue
+        if ip.startswith("192.168.4."):
+            # AP-only range
+            continue
+        if ip.startswith("10."):
+            # Common ZeroTier range; ZT address is shown separately
+            continue
+        return ip
+    return None
+
+
+def get_zerotier_ip():
+    """Return the box's ZeroTier IPv4 address, or None if not joined.
+
+    The `ip -4 -o addr show` format is `INDEX: IFRNAME<spaces>INET...`
+    (only ONE colon, after the index). We split on the first colon
+    only and take the rest as the iface name + address data."""
+    import re
+    try:
+        out = subprocess.check_output(
+            ["ip", "-4", "-o", "addr", "show"], text=True
+        )
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return None
+    for line in out.splitlines():
+        if ":" not in line:
+            continue
+        idx, rest = line.split(":", 1)
+        ifname = rest.split()[0] if rest.split() else ""
+        if not ifname.startswith("zt"):
+            continue
+        m = re.search(r"inet (\S+)", rest)
+        if m:
+            return m.group(1).split("/")[0]
+    return None
+
+
+def get_zerotier_network_id():
+    """Return the full 16-hex-char ZT network ID, or None if not joined.
+
+    The .conf file's first line is `v=<protocol-version>`; the
+    `nwid=<hex>` line is the second. Read up to 3 lines."""
+    ndir = "/var/lib/zerotier-one/networks.d"
+    if not os.path.isdir(ndir):
+        return None
+    try:
+        for fn in os.listdir(ndir):
+            if fn.endswith(".local.conf"):
+                continue
+            if not fn.endswith(".conf"):
+                continue
+            with open(os.path.join(ndir, fn), "rb") as f:
+                head = b""
+                for _ in range(3):
+                    line = f.readline()
+                    if not line:
+                        break
+                    head += line
+                    if b"nwid=" in line:
+                        break
+            text = head.decode("utf-8", errors="replace")
+            for line in text.splitlines():
+                if line.startswith("nwid="):
+                    return line[5:].strip()
+    except (OSError, IOError):
+        return None
+    return None
 
 
 @app.route("/")
@@ -17,7 +110,12 @@ def home():
         wifi_status=wifi_status,
         meshchat_status=meshchat_status,
         rnsd_status=rnsd_status,
-        portal_url=get_portal_url()
+        portal_url=get_portal_url(),
+        ap_name=get_ap_name(),
+        hostname=get_hostname(),
+        lan_ip=get_lan_ip(),
+        zt_ip=get_zerotier_ip(),
+        zt_network_id=get_zerotier_network_id()
     )
 
 def get_meshchat_url():
@@ -110,16 +208,65 @@ def service_status(service_name):
     except subprocess.CalledProcessError:
 
         return "Not Running"
-    
+
+def get_client_wifi_iface():
+    """
+    Return the wifi device that is NOT the hostapd AP, or None.
+
+    The g90digi image runs hostapd on the onboard wifi (wlan0) as the
+    local AP. When a USB wifi dongle is plugged in for client-mode
+    scanning/connecting to a home AP, it enumerates as some other iface
+    (wlan1 on a clean Bookworm install, wlan2 if something else got
+    there first). This helper finds it dynamically so the code does
+    not have to hardcode 'wlan1'.
+
+    Detection: nmcli reports the hostapd AP iface as 'unmanaged'
+    (NetworkManager doesn't own it). Any other wifi device is the
+    client radio. Returns the iface name (e.g. 'wlan1') or None if
+    no client radio is present.
+    """
+    try:
+        output = subprocess.check_output(
+            [
+                "sudo",
+                "nmcli",
+                "-t",
+                "-f",
+                "DEVICE,STATE",
+                "device",
+                "status",
+            ],
+            text=True,
+            stderr=subprocess.STDOUT,
+        )
+    except subprocess.CalledProcessError:
+        return None
+
+    for line in output.splitlines():
+        parts = line.split(":")
+        if len(parts) < 2:
+            continue
+        iface, state = parts[0].strip(), parts[1].strip()
+        if not iface.startswith("wlan") and not iface.startswith("wlx"):
+            continue
+        if state == "unmanaged":
+            continue
+        return iface
+
+    return None
+
 def get_current_host_ip():
     return request.host.split(":")[0]
 
 def get_shared_launcher_url():
-    # The g90 shared launcher (sibling of the sbitx box's my_launcher)
-    # is served by /home/pi/shared_launcher/app.py via systemd unit
-    # g90-shared-launcher.service, listening on :8090. node-portal runs
-    # on :80, so the link must include the explicit port.
-    return f"http://{get_current_host_ip()}:8090/"
+    # The g90 shared launcher is on port 80 (it's the home page). On
+    # the nomadpi test sled, the launcher runs on a different port
+    # (LAUNCHER_PORT=9090 via systemd Environment); for the wifi
+    # page's outbound link we use port 80 since this code lives on
+    # the g90 box, not the test sled. If you ever need to point
+    # the wifi page at the test sled, change this to read from
+    # os.environ.get("SHARED_LAUNCHER_PORT", "80").
+    return f"http://{get_current_host_ip()}/"
 
 
 def get_novnc_url(mode="desktop"):
@@ -133,25 +280,66 @@ def get_novnc_url(mode="desktop"):
 @app.route("/scan", methods=["POST"])
 def scan():
 
-    subprocess.check_output(
-        [
-            "sudo",
-            "nmcli",
-            "device",
-            "set",
-            "wlan1",
-            "managed",
-            "yes"
-        ],
+    client_iface = get_client_wifi_iface()
 
-        text=True,
-        stderr=subprocess.STDOUT
-    )
+    if client_iface is None:
+        return render_template(
+            "index.html",
+            message=f"Plug in a USB WiFi adapter to scan for networks. {get_ap_name()}'s onboard WiFi is busy running the local access point.",
+            wifi_status=get_wifi_status(),
+            portal_url=get_portal_url(),
+            ap_name=get_ap_name(),
+            hostname=get_hostname(),
+            lan_ip=get_lan_ip(),
+            zt_ip=get_zerotier_ip(),
+            zt_network_id=get_zerotier_network_id()
+        )
 
-    output = subprocess.check_output(
-        ["sudo","nmcli", "-t", "-f", "SSID", "dev", "wifi"],
-        text=True
-    )
+    try:
+        subprocess.check_output(
+            [
+                "sudo",
+                "nmcli",
+                "device",
+                "set",
+                client_iface,
+                "managed",
+                "yes"
+            ],
+
+            text=True,
+            stderr=subprocess.STDOUT
+        )
+
+        output = subprocess.check_output(
+            [
+                "sudo",
+                "nmcli",
+                "-t",
+                "-f",
+                "SSID",
+                "dev",
+                "wifi",
+                "list",
+                "ifname",
+                client_iface
+            ],
+            text=True,
+            stderr=subprocess.STDOUT
+        )
+    except subprocess.CalledProcessError as error:
+        return render_template(
+            "index.html",
+            message="WiFi scan failed.",
+            command_output=error.output,
+            wifi_status=get_wifi_status(),
+            portal_url=get_portal_url(),
+            ap_name=get_ap_name(),
+            hostname=get_hostname(),
+            lan_ip=get_lan_ip(),
+            zt_ip=get_zerotier_ip(),
+            zt_network_id=get_zerotier_network_id()
+        )
 
     networks = []
 
@@ -169,7 +357,12 @@ def scan():
         "index.html",
         networks=networks,
         message="Scan complete. Select a network.",
-        portal_url=get_portal_url()
+        portal_url=get_portal_url(),
+        ap_name=get_ap_name(),
+        hostname=get_hostname(),
+        lan_ip=get_lan_ip(),
+        zt_ip=get_zerotier_ip(),
+        zt_network_id=get_zerotier_network_id()
     )
 
 
@@ -182,24 +375,44 @@ def connect():
         return render_template(
             "index.html",
             message="No WiFi network selected.",
-            portal_url=get_portal_url()
+            portal_url=get_portal_url(),
+            ap_name=get_ap_name(),
+            hostname=get_hostname(),
+            lan_ip=get_lan_ip(),
+            zt_ip=get_zerotier_ip(),
+            zt_network_id=get_zerotier_network_id()
         )
 
     try:
+        client_iface = get_client_wifi_iface()
+
+        if client_iface is None:
+            return render_template(
+                "index.html",
+                message="Plug in a USB WiFi adapter before connecting to a network.",
+                wifi_status=get_wifi_status(),
+                portal_url=get_portal_url(),
+                ap_name=get_ap_name(),
+                hostname=get_hostname(),
+                lan_ip=get_lan_ip(),
+                zt_ip=get_zerotier_ip(),
+                zt_network_id=get_zerotier_network_id()
+            )
+
         subprocess.check_output(
             [
                 "sudo",
                 "nmcli",
                 "device",
                 "set",
-                "wlan1",
+                client_iface,
                 "managed",
                 "yes"
             ],
             text=True,
             stderr=subprocess.STDOUT
         )
-        
+
         output = subprocess.check_output(
             [
                 "sudo",
@@ -211,7 +424,7 @@ def connect():
                 "password",
                 password,
 		"ifname",
-		"wlan1"
+		client_iface
             ],
             text=True,
             stderr=subprocess.STDOUT
@@ -223,7 +436,12 @@ def connect():
             "index.html",
             wifi_status=get_wifi_status(),
             message="WiFi connected. Connect your device to the same WiFi network, then open the Browser Address shown above.",
-            portal_url=get_portal_url()
+            portal_url=get_portal_url(),
+            ap_name=get_ap_name(),
+            hostname=get_hostname(),
+            lan_ip=get_lan_ip(),
+            zt_ip=get_zerotier_ip(),
+            zt_network_id=get_zerotier_network_id()
        )
 
     except subprocess.CalledProcessError as error:
@@ -233,7 +451,12 @@ def connect():
             wifi_status=get_wifi_status(),
             message="WiFi connection failed.",
             command_output=error.output,
-            portal_url=get_portal_url()
+            portal_url=get_portal_url(),
+            ap_name=get_ap_name(),
+            hostname=get_hostname(),
+            lan_ip=get_lan_ip(),
+            zt_ip=get_zerotier_ip(),
+            zt_network_id=get_zerotier_network_id()
         )
 
 @app.route("/disconnect", methods=["POST"])
@@ -241,13 +464,28 @@ def disconnect():
 
     try:
 
+        client_iface = get_client_wifi_iface()
+
+        if client_iface is None:
+            return render_template(
+                "index.html",
+                message="No USB WiFi adapter to disconnect.",
+                wifi_status=get_wifi_status(),
+                portal_url=get_portal_url(),
+                ap_name=get_ap_name(),
+                hostname=get_hostname(),
+                lan_ip=get_lan_ip(),
+                zt_ip=get_zerotier_ip(),
+                zt_network_id=get_zerotier_network_id()
+            )
+
         subprocess.check_output(
             [
                 "sudo",
                 "nmcli",
                 "device",
                 "disconnect",
-                "wlan1"
+                client_iface
             ],
             text=True,
             stderr=subprocess.STDOUT
@@ -255,9 +493,14 @@ def disconnect():
 
         return render_template(
             "index.html",
-            message="WiFi disconnected. Reconnect to g90digi AP at g90digi.local or 192.168.4.1",
+            message=f"WiFi disconnected. Reconnect to {get_ap_name()} AP at {get_hostname()}.local or 192.168.4.1",
             wifi_status=get_wifi_status(),
-            portal_url=get_portal_url()
+            portal_url=get_portal_url(),
+            ap_name=get_ap_name(),
+            hostname=get_hostname(),
+            lan_ip=get_lan_ip(),
+            zt_ip=get_zerotier_ip(),
+            zt_network_id=get_zerotier_network_id()
         )
 
     except subprocess.CalledProcessError as error:
@@ -267,7 +510,12 @@ def disconnect():
             message="Failed to disconnect WiFi.",
             command_output=error.output,
             wifi_status=get_wifi_status(),
-            portal_url=get_portal_url()
+            portal_url=get_portal_url(),
+            ap_name=get_ap_name(),
+            hostname=get_hostname(),
+            lan_ip=get_lan_ip(),
+            zt_ip=get_zerotier_ip(),
+            zt_network_id=get_zerotier_network_id()
         )
 
 def process_running(name):
@@ -284,7 +532,12 @@ def apps():
     return render_template(
         "apps.html",
         portal_url=get_portal_url(),
-        meshchat_url=get_meshchat_url()
+        meshchat_url=get_meshchat_url(),
+        ap_name=get_ap_name(),
+        hostname=get_hostname(),
+        lan_ip=get_lan_ip(),
+        zt_ip=get_zerotier_ip(),
+        zt_network_id=get_zerotier_network_id()
     )
 @app.route("/open-meshchat", methods=["POST"])
 def open_meshchat():
@@ -492,4 +745,11 @@ def reboot():
     </html>
         """
 
-app.run(host="0.0.0.0", port=80)
+# node-portal is the wifi setup / admin page. The shared launcher is
+# the home page at :80. We were on :80 originally, which made the
+# launcher URL require a ":8090" port suffix everywhere. Flipping the
+# roles (launcher :80, wifi :8090) means the user can bookmark
+# http://<host>/ for the launcher and reach the wifi page by typing
+# the port when needed. The wifi page is admin-only (network changes,
+# LAN reconfig); the launcher is the daily-driver UI.
+app.run(host="0.0.0.0", port=8090)
