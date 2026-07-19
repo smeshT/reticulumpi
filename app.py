@@ -691,9 +691,24 @@ def update_from_server():
 
 
 if __name__ == "__main__":
-    # Listen on 0.0.0.0:80 (the home page for the g90). On the nomadpi
-    # test sled, override via LAUNCHER_PORT=9090. The port assignment
-    # is also why this file has the env-var override pattern: the
-    # g90-test-launcher.service runs the same code on a different port.
-    port = int(os.environ.get("LAUNCHER_PORT", "80"))
+    # Listen on 0.0.0.0:8090 (same port as sbitx's my-launcher for
+    # cross-box consistency). node-portal owns :80 on the g90, so this
+    # MUST be 8090 (or higher).
+    #
+    # History: commit a461f3b (the waterfall tool) introduced
+    # `LAUNCHER_PORT` and set its default to 80, intending to make
+    # the g90 launcher the port-80 home page. But the g90's
+    # node-portal already owns :80, and the shared launcher's
+    # systemd unit was never updated to set LAUNCHER_PORT=80.
+    # Result: every g90 that pulled a461f3b crash-looped on
+    # "Address already in use" the moment systemd tried to start
+    # the launcher. The launcher went down; node-portal kept
+    # serving :80. This was undetected in CI because the test
+    # sled binds 9090 and the unit file's comment said :8090.
+    #
+    # Fix: hardcode 8090 here. If a future commit wants the
+    # launcher on a different port, update BOTH the g90-shared-
+    # launcher.service unit (with Environment=LAUNCHER_PORT=)
+    # AND this default. Keep them in sync.
+    port = int(os.environ.get("LAUNCHER_PORT", "8090"))
     app.run(host="0.0.0.0", port=port)

@@ -14,6 +14,13 @@ After=network.target
 [Service]
 User=pi
 WorkingDirectory=/home/pi/shared_launcher
+# LAUNCHER_PORT=8090 is the port the launcher binds. We set it
+# explicitly here, even though app.py's default is also 8090,
+# so the unit file is self-documenting and a future change to
+# app.py's default can't silently flip the g90's port.
+#
+# The g90-test-launcher.service overrides this to 9090 (test sled).
+Environment=LAUNCHER_PORT=8090
 ExecStart=/usr/bin/python3 /home/pi/shared_launcher/app.py
 Restart=always
 RestartSec=3
