@@ -1,0 +1,27 @@
+[Unit]
+Description=ARDOP PTT bridge + hamlib CAT relay (g90)
+Documentation=https://github.com/openclaw/openclaw
+# Bridge must own the FTDI cable before piardopc/pat start.
+# Replaces obsolete rigctld.service — bridge handles PTT and CAT via :8517/:8518/:4532.
+After=local-fs.target
+Before=piardopc.service pat-http.service
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/home/pi/ardop
+ExecStart=/usr/bin/python3 /home/pi/ardop/ardop_ptt_bridge.py
+Restart=on-failure
+RestartSec=3
+StandardOutput=append:/tmp/ardop_ptt_bridge.log
+StandardError=append:/tmp/ardop_ptt_bridge.log
+
+# Hardening
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=read-only
+PrivateTmp=false
+
+[Install]
+WantedBy=multi-user.target

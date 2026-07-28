@@ -1,0 +1,30 @@
+[Unit]
+Description=piardopc ARDOP modem (g90)
+Documentation=https://github.com/openclaw/openclaw
+# Piardopc must start AFTER the bridge owns the FTDI cable and :8515 listener.
+# Runs WITHOUT the -p flag — bridge handles hardware PTT via FTDI.
+# Bridge on :8517 -> piardopc on :8515 (ARDOP TNC).
+# Bridge on :8518 -> piardopc on :8516 (companion probe).
+After=ardop-ptt-bridge.service
+After=sound.target
+Requires=ardop-ptt-bridge.service
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/home/pi/ardop
+# ARDOP TNC :8515, companion :8516, audio in/out plughw:1,0 (USB CODEC).
+# NO -p flag — bridge owns the FTDI cable.
+ExecStart=/home/pi/ardop/./piardopc 8515 plughw:1,0 plughw:1,0
+Restart=on-failure
+RestartSec=5
+
+# Hardening
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=read-only
+PrivateTmp=false
+
+[Install]
+WantedBy=multi-user.target
