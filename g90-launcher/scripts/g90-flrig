@@ -1,0 +1,108 @@
+#!/bin/bash
+# g90-flrig — wrapper that runs flrig with proper bridge handoff.
+#
+# Default mode: bridge owns FTDI cable, ARDOP via :8517/:8518/:4532.
+# This script swaps to flrig mode, runs flrig, then swaps back.
+#
+# Why this exists: flrig and the bridge both want the FTDI cable.
+# Running both simultaneously causes G90 VFO-A/VFO-B rapid toggling
+# (verified 2026-07-28 — bridge+flrig both writing CAT commands
+# simultaneously confuses the G90). The bridge has the PTT intercept
+# for pat's HTTP-driven CQ/connect; flrig has the GUI panel control.
+# Mutual exclusivity with a clean handoff is the right architecture.
+#
+# Usage:
+#   g90-flrig          # launches flrig with bridge stopped
+#                      # (closes flrig window = bridge restarts automatically)
+#
+# Pre-conditions:
+#   - ardop-ptt-bridge.service exists (committed at g90-launcher/systemd/)
+#   - pat config at /home/pi/.config/pat/config.json has
+#     "broker-g90": { "address": "127.0.0.1:4532" } (bridge mode default)
+#   - User is logged in to a graphical session (DISPLAY=:0)
+#
+# What it does:
+#   1. Stop ardop-ptt-bridge.service (releases FTDI cable)
+#   2. Stop pat-http.service (clean state)
+#   3. Edit pat config: broker-g90.address -> 127.0.0.1:12345 (flrig)
+#   4. Start pat-http.service (picks up new config, broker-g90 init via flrig)
+#   5. Launch flrig (this script BLOCKS here while flrig runs)
+#   6. When flrig exits:
+#      a. Edit pat config: broker-g90.address -> 127.0.0.1:4532 (bridge)
+#      b. Restart pat-http.service (picks up new config)
+#      c. Start ardop-ptt-bridge.service (reclaims FTDI cable)
+#
+# Notes:
+#   - This script is meant to be run from a desktop launcher / icon.
+#   - It is NOT a systemd unit — systemd user services for GUI apps
+#     are fragile, and the user explicitly opens flrig via GUI.
+#   - The bridge's ardop-ptt-bridge.service has Conflicts=flrig.service
+#     so systemd refuses both running if someone tries to bypass this.
+
+set -euo pipefail
+
+BRIDGE_SERVICE="ardop-ptt-bridge.service"
+PAT_SERVICE="pat-http.service"
+PAT_CONFIG="/home/pi/.config/pat/config.json"
+PAT_CONFIG_BAK="/home/pi/.config/pat/config.json.bak-g90-flrig"
+BRIDGE_ADDR="127.0.0.1:4532"
+FLRIG_ADDR="127.0.0.1:12345"
+
+log() { echo "[g90-flrig] $*" >&2; }
+
+# Sanity: ensure not already in flrig mode
+if ! systemctl --user is-active --quiet "$BRIDGE_SERVICE" 2>/dev/null; then
+    log "Bridge service is not active. Refusing to run (already in flrig mode?)."
+    exit 1
+fi
+
+# Backup pat config (one-time, before first edit)
+if [ ! -f "$PAT_CONFIG_BAK" ]; then
+    cp "$PAT_CONFIG" "$PAT_CONFIG_BAK"
+    log "Backed up pat config to $PAT_CONFIG_BAK"
+fi
+
+cleanup_and_restore() {
+    log "flrig exited — restoring bridge mode"
+    # Edit pat config back to bridge address
+    python3 -c "
+import json
+with open('$PAT_CONFIG') as f: cfg = json.load(f)
+cfg['hamlib_rigs']['broker-g90']['address'] = '$BRIDGE_ADDR'
+with open('$PAT_CONFIG', 'w') as f: json.dump(cfg, f, indent=2)
+"
+    systemctl --user restart "$PAT_SERVICE" || true
+    systemctl --user start "$BRIDGE_SERVICE" || true
+    log "Bridge restarted. Pat repointed at $BRIDGE_ADDR."
+}
+trap cleanup_and_restore EXIT INT TERM
+
+# Step 1: stop bridge
+log "Stopping $BRIDGE_SERVICE (releases FTDI cable)"
+systemctl --user stop "$BRIDGE_SERVICE"
+
+# Step 2: stop pat-http
+log "Stopping $PAT_SERVICE"
+systemctl --user stop "$PAT_SERVICE"
+
+# Step 3: edit pat config to flrig address
+log "Repointing pat broker-g90 -> $FLRIG_ADDR"
+python3 -c "
+import json
+with open('$PAT_CONFIG') as f: cfg = json.load(f)
+cfg['hamlib_rigs']['broker-g90']['address'] = '$FLRIG_ADDR'
+with open('$PAT_CONFIG', 'w') as f: json.dump(cfg, f, indent=2)
+"
+
+# Step 4: start pat-http (picks up new config; broker-g90 connects to flrig)
+log "Starting $PAT_SERVICE (broker-g90 -> flrig)"
+systemctl --user start "$PAT_SERVICE"
+
+# Brief pause so pat finishes broker-g90 init
+sleep 2
+
+# Step 5: launch flrig (BLOCKS until flrig exits)
+log "Launching flrig — close flrig window to return to bridge mode"
+DISPLAY=:0 flrig
+# When flrig exits, the EXIT trap fires cleanup_and_restore which
+# repoints pat back to bridge and restarts the bridge service.

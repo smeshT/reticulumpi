@@ -3,8 +3,11 @@ Description=ARDOP PTT bridge + hamlib CAT relay (g90)
 Documentation=https://github.com/openclaw/openclaw
 # Bridge must own the FTDI cable before piardopc/pat start.
 # Replaces obsolete rigctld.service — bridge handles PTT and CAT via :8517/:8518/:4532.
+# Conflicts with flrig.service so only one owns the FTDI cable at a time.
+# To use flrig directly, run g90-flrig which does the handoff cleanly.
 After=local-fs.target
 Before=piardopc.service pat-http.service
+Conflicts=flrig.service
 
 [Service]
 Type=simple
