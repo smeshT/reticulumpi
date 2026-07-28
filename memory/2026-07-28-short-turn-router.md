@@ -101,3 +101,28 @@ Tested with isolated short prompts in the main session:
 
 Routing is working. Real validation needs to come from watching a Cletus
 session over the next day or two.
+
+## Forced compaction of Cletus's 167M-token session
+
+2026-07-28 16:47 — session was at 303k/524k (58%) but the cumulative
+turns/turn-cost was 167M tokens. The LLM-summarization path timed out
+(180s default not enough for 167M tokens). Used `--max-lines 200`
+truncation instead:
+
+```
+openclaw sessions compact "agent:cletus:telegram:direct:5076902913" \
+  --agent cletus --max-lines 200 --timeout 600000
+```
+
+Result: 5.6MB / 1771 lines / 167M tokens → 773KB / 200 lines / ~20-30k
+tokens. Original archived as `.bak.2026-07-28T22-47-44.677Z`.
+
+Trade-off: this is a *truncation*, not a *summarization*. The model
+loses the older half of the session context. For Cletus's active bridge
+debug, that's OK because the relevant work is in the last 200 lines. For
+cases where the older context matters, use the LLM-summarization path
+with a longer timeout (or schedule it for low-traffic hours).
+
+The CLI hint about `--max-lines` is documented but the default-messaging
+in docs leads with LLM summarization. Truncation is the right tool when
+the session is mostly confirmations and the recent tail has the work.
