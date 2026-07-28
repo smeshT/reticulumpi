@@ -37,6 +37,9 @@ echo "==> Installing systemd units from $SCRIPT_DIR"
 install -m 0644 "$SCRIPT_DIR/ardop-ptt-bridge.service" /etc/systemd/system/
 install -m 0644 "$SCRIPT_DIR/piardopc.service" /etc/systemd/system/
 
+echo "==> Installing g90-flrig wrapper to /usr/local/bin/"
+install -m 0755 "$SCRIPT_DIR/../scripts/g90-flrig" /usr/local/bin/g90-flrig
+
 echo "==> Reloading systemd"
 systemctl daemon-reload
 
