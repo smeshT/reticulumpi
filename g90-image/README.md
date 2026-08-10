@@ -178,13 +178,14 @@ g90's IP. Then:
 > ZeroTier-assigned IP. Don't assume they're the same
 > box just because the image is the same.
 
-## Relationship to `g90-image/` (Pi 4 historical)
+## Pi 4 historical
 
-`g90-image/` (one level up) is the **Pi 4 historical** overlay —
-the original QYT KT-8900D / G90 image overlay for the Pi 4 (BCM2711).
-It's preserved for reference and as the lineage of how this project
-got here. **Do not edit it for new work** — start from this directory
-(`g90-image-pi5/`) instead, or use the dual-arch pattern below.
+The previous-generation Pi 4 overlay (BCM2711, 32-bit-friendly,
+`g90f1r2-AP` SSID) is preserved at `g90-image/pi4/` for reference
+and as the lineage of how this project got here. **Do not edit
+it for new work** — this directory (`g90-image/`) is the canonical
+recipe for both Pi 4 and Pi 5 deployments via the dual-arch
+capability verified on 2026-08-09 (one image, both targets).
 
 ## Relationship to the live deployed boxes
 
