@@ -78,10 +78,11 @@ the real work lives in the projects below.
 **Base layer — the ReticulumHF image:**
 - [ReticulumHF](https://github.com/LFManifesto/ReticulumHF) by the
   [Light Fighter Manifesto](https://lightfightermanifesto.org/) —
-  Reticulum + FreeDV over HF radio, packaged as a Raspberry Pi
-  image.
+  Reticulum + codec2 data modes (DATAC1/DATAC3/DATAC4) over HF
+  radio, packaged as a Raspberry Pi image.
 - [freedvtnc2](https://github.com/LFManifesto/freedvtnc2) (also
-  LFManifesto) — FreeDV TNC.
+  LFManifesto) — FreeDV TNC. The HF data-mode modem (uses the
+  codec2 family; distinct from the FreeDV voice-mode application).
 
 **Networking stack:**
 - [Reticulum (RNS)](https://github.com/markqvist/Reticulum),
@@ -91,10 +92,12 @@ the real work lives in the projects below.
   Mark Qvist. The off-grid mesh layer.
 - [ZeroTier](https://www.zerotier.com/) — overlay networking.
 
-**Digital modes:**
-- [codec2](https://github.com/drowe67/codec2) and
-  [FreeDV](https://github.com/drowe67/codec2/blob/main/README_data.md)
-  by David Rowe (drowe67) — the HF voice + data codec family.
+**HF data modes:**
+- [codec2](https://github.com/drowe67/codec2) by David Rowe
+  (drowe67) — the codec family underlying freedvtnc2's
+  DATAC1/DATAC3/DATAC4 modes. (FreeDV, the voice-mode app,
+  is a separate project; this image uses the codec2 data
+  modes via freedvtnc2, not FreeDV voice.)
 - [pat](https://github.com/la5nta/pat) by LA5NTA — Winlink client
   (Go).
 

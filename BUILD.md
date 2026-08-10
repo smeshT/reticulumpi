@@ -303,9 +303,10 @@ people built the hard parts first:
   stack, [LXMF](https://github.com/markqvist/LXMF),
   [Sideband](https://github.com/markqvist/Sideband), and
   [NomadNet](https://github.com/markqvist/NomadNet) by Mark Qvist.
-- [codec2](https://github.com/drowe67/codec2) /
-  [FreeDV](https://github.com/drowe67/codec2/blob/main/README_data.md)
-  by David Rowe (drowe67).
+- [codec2](https://github.com/drowe67/codec2) by David Rowe
+  (drowe67) — the codec family underlying freedvtnc2's data
+  modes (DATAC1/DATAC3/DATAC4). The FreeDV voice-mode app is a
+  separate project; this image uses the data modes via freedvtnc2.
 - [Hamlib](https://github.com/Hamlib/Hamlib) for rig control.
 - [flrig](https://github.com/w1hkj/flrig) by W1HKJ.
 - [pat](https://github.com/la5nta/pat) by LA5NTA (Winlink).

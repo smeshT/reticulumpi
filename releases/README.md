@@ -29,7 +29,7 @@ source via [BUILD.md](../BUILD.md)).
 
 # reticulumpi
 
-Pi 4 + Pi 5 dual-arch (64-bit) Raspberry Pi image with Reticulum + FreeDV digital modes, pre-configured for the g90 / QYT KT-8900D mobile radio fleet.
+Pi 4 + Pi 5 dual-arch (64-bit) Raspberry Pi image with Reticulum + freedvtnc2 (FreeDV TNC) digital modes, pre-configured for the g90 / QYT KT-8900D mobile radio fleet.
 
 ## First-boot defaults (the public release baseline)
 
