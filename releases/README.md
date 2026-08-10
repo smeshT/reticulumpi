@@ -1,15 +1,14 @@
 # Releases
 
 This directory documents each captured flashable image produced by the
-g90 / sbitx overlay. The actual `.img.xz` binaries are attached as
-GitHub Release assets (https://github.com/smeshT/reticulumpi/releases)
-because they're ~1 GB each — too large for git.
+g90 / sbitx overlay.
 
-
-**Note:** image binaries (the `.img.xz` files) are NOT in this repo
-or in github Releases. They live on the dev Pi at
-`/media/pi/REMOTE/pi_images/` because 1 GB binaries don't belong in
-git. See each release's NOTES.md for download instructions.
+**Note:** image binaries (the `.img.xz` files) are NOT in this repo.
+They live on the dev Pi at `/media/pi/REMOTE/pi_images/` because
+1 GB binaries don't belong in git. See each release's NOTES.md for
+download instructions (the g90 group's ZT host is documented in
+the deployed-box operations notes; public readers should build from
+source via [BUILD.md](../BUILD.md)).
 
 ## Index of releases
 
@@ -42,8 +41,8 @@ Pi 4 + Pi 5 dual-arch (64-bit) Raspberry Pi image with Reticulum + FreeDV digita
 - **Default ZeroTier:** none (operators add their network ID via the overlay's `bootstrap.sh`)
 
 These defaults are the public-release baseline. The actual values used
-by a deployed fleet are operator-specific and live in the private
-`smeshT/g90digi` repo (see the `Repo layout` note below).
+by a deployed fleet are operator-specific and live in your private
+deployment config — not in this repo.
 
 ## What's in the box
 
@@ -134,11 +133,13 @@ sudo sed -i 's/g90digi/<your-hostname>/g' /mnt/cmdline.txt
 
 ### Rebuild from source
 
-The image is built on top of [ReticulumHF](https://github.com/reticulumrf/reticulumhf-base), with our g90 overlay layered on top. See `smeshT/reticulumpi` for the source — both Pi 4 and Pi 5 overlays are merged into that single repo.
+The image is built on top of
+[ReticulumHF](https://github.com/LFManifesto/ReticulumHF/releases)
+(v1.0 stable), with our g90 overlay layered on top. See the
+top-level [BUILD.md](../BUILD.md) for the end-to-end build recipe.
 
 ```bash
 # Pull the latest overlay
-git clone https://github.com/smeshT/reticulumpi.git
 git clone https://github.com/smeshT/reticulumpi.git
 
 # Build the image with pi-gen + the overlay

@@ -56,11 +56,9 @@ Public readers: don't have access. Build from source instead
 (see [`g90-image/QUICK-START.md`](../../g90-image/QUICK-START.md)).
 
 **HTTP download (group-only, 2026-08-10+):** the g90 group has
-a pre-built image available over ZeroTier. The URL is published
-in the private companion repo ([`smeshT/g90digi`](https://github.com/smeshT/g90digi))
-and is reachable only by group members. Public readers should
-use the `scp` paths above (which only work if you happen to be
-on the same LAN) or build from source.
+a pre-built image available over ZeroTier. Public readers
+should use the `scp` paths above (which only work if you happen
+to be on the same LAN) or build from source.
 
 After download, verify:
 
@@ -106,7 +104,11 @@ BEFORE flashing. The bundled defaults are:
   `g90-image/config/reticulumhf-config.env` before flashing, or set
   the AP password at first boot via the captive portal.
 - **ZeroTier is NOT pre-configured.** Operators add their own ZT
-  network via `smeshT/g90digi/etc-captures/<box>/<...>` instructions.
+  network by editing
+  `/etc/systemd/system/zerotier-one.service.d/join.conf` on the
+  deployed box (or by running `zerotier-cli join <network-id>`
+  manually). See [BUILD.md](../../BUILD.md) step 6 for the
+  procedure.
 
 ## Source
 

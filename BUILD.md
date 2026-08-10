@@ -24,7 +24,11 @@ The build pipeline is **two layers**:
 
 1. **Base layer** — stock ReticulumHF image. Provides the
    Pi's AP + captive portal, rnsd, freedvtnc2, noVNC, etc.
-   Get it from <https://lightfightermanifesto.org/tools/reticulumhf/>
+   Get it from the Light Fighter Manifesto [resources
+   page](https://lightfightermanifesto.org/resources/) or the
+   [LFManifesto/ReticulumHF releases on
+   GitHub](https://github.com/LFManifesto/ReticulumHF/releases/)
+   (current stable: v1.0).
 2. **Overlay layer** — this repo's `g90-image/` + `g90-launcher/`
    folders. Adds the g90-specific shared launcher, patmenu2
    edits, ARDOP PTT bridge, FTDI cable setup, audio dsnoop,
@@ -36,9 +40,12 @@ package installation and `apt update`.
 ## Step 1 — Flash the base image
 
 ```bash
-# Download the latest ReticulumHF base image ZIP from
-# https://lightfightermanifesto.org/tools/reticulumhf/
-# 
+# Download the latest ReticulumHF base image from
+# https://lightfightermanifesto.org/resources/ (the Light Fighter
+# resources index — ReticulumHF v1.0 stable link)
+# OR from the github releases:
+# https://github.com/LFManifesto/ReticulumHF/releases/
+
 # Flash with Raspberry Pi Imager:
 #   1. Open Pi Imager
 #   2. Choose OS → "Use custom" → select the ZIP
@@ -277,8 +284,38 @@ kernel modules.
   has a help link (tap the app name).
 - **For build problems:** open an issue at
   <https://github.com/smeshT/reticulumpi/issues>
-- **For ReticulumHF base problems:** see
-  <https://lightfightermanifesto.org/tools/reticulumhf/>
+- **For ReticulumHF base problems:** see the
+  [Light Fighter resources](https://lightfightermanifesto.org/resources/)
+  or the [ReticulumHF repo](https://github.com/LFManifesto/ReticulumHF).
 - **For Pi 5 specific gotchas:** see `memory/g90-project.md`
   in this repo for the 2026-08-09 dual-arch verification
   notes.
+
+## Credits
+
+The real work here is glue. This overlay exists because other
+people built the hard parts first:
+
+- The [ReticulumHF](https://github.com/LFManifesto/ReticulumHF)
+  base image and [freedvtnc2](https://github.com/LFManifesto/freedvtnc2)
+  by [Light Fighter Manifesto](https://lightfightermanifesto.org/).
+- The [Reticulum](https://github.com/markqvist/Reticulum) network
+  stack, [LXMF](https://github.com/markqvist/LXMF),
+  [Sideband](https://github.com/markqvist/Sideband), and
+  [NomadNet](https://github.com/markqvist/NomadNet) by Mark Qvist.
+- [codec2](https://github.com/drowe67/codec2) /
+  [FreeDV](https://github.com/drowe67/codec2/blob/main/README_data.md)
+  by David Rowe (drowe67).
+- [Hamlib](https://github.com/Hamlib/Hamlib) for rig control.
+- [flrig](https://github.com/w1hkj/flrig) by W1HKJ.
+- [pat](https://github.com/la5nta/pat) by LA5NTA (Winlink).
+- [fldigi](https://github.com/wizhippo/fldigi-flrig) (W1HKJ et al.),
+  [WSJT-X](https://sourceforge.net/projects/wsjt/) (Joe Taylor K1JT
+  et al.), and
+  [JS8Call](https://github.com/JS8Call-improved) (Jordan Sherer
+  KN4CRD et al.).
+- [Raspberry Pi OS](https://www.raspberrypi.com/software/) for the
+  foundation.
+- [ZeroTier](https://www.zerotier.com/) for the overlay network.
+
+Full credits in the top-level [README.md](README.md#credits).

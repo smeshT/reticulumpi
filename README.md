@@ -13,8 +13,11 @@ image.
 
 Full step-by-step recipe: **[`BUILD.md`](BUILD.md)**.
 
-The short version: flash the [ReticulumHF](https://lightfightermanifesto.org/tools/reticulumhf/)
-base image with Raspberry Pi Imager, `apt install` the overlay
+The short version: download the
+[ReticulumHF](https://github.com/LFManifesto/ReticulumHF/releases/)
+base image (also linked from the
+[Light Fighter resources](https://lightfightermanifesto.org/resources/)),
+flash it with Raspberry Pi Imager, `apt install` the overlay
 packages (flrig, hamlib, pat, direwolf, zerotier, etc.), clone
 this repo, drop `g90-image/` + `g90-launcher/` files into place,
 set your operator values (callsign, SSID, password, ZT network)
@@ -65,6 +68,55 @@ For build problems: open an issue at
 
 The full deploy history, lessons learned, and policy documentation
 is in `memory/g90-project.md`.
+
+## Credits
+
+This project stands on the shoulders of the open-source amateur
+radio and mesh networking communities. Everything here is glue —
+the real work lives in the projects below.
+
+**Base layer — the ReticulumHF image:**
+- [ReticulumHF](https://github.com/LFManifesto/ReticulumHF) by the
+  [Light Fighter Manifesto](https://lightfightermanifesto.org/) —
+  Reticulum + FreeDV over HF radio, packaged as a Raspberry Pi
+  image.
+- [freedvtnc2](https://github.com/LFManifesto/freedvtnc2) (also
+  LFManifesto) — FreeDV TNC.
+
+**Networking stack:**
+- [Reticulum (RNS)](https://github.com/markqvist/Reticulum),
+  [LXMF](https://github.com/markqvist/LXMF),
+  [Sideband](https://github.com/markqvist/Sideband), and
+  [NomadNet](https://github.com/markqvist/NomadNet) — all by
+  Mark Qvist. The off-grid mesh layer.
+- [ZeroTier](https://www.zerotier.com/) — overlay networking.
+
+**Digital modes:**
+- [codec2](https://github.com/drowe67/codec2) and
+  [FreeDV](https://github.com/drowe67/codec2/blob/main/README_data.md)
+  by David Rowe (drowe67) — the HF voice + data codec family.
+- [pat](https://github.com/la5nta/pat) by LA5NTA — Winlink client
+  (Go).
+
+**CAT control + hamlib:**
+- [Hamlib](https://github.com/Hamlib/Hamlib) — rig control library.
+- [flrig](https://github.com/w1hkj/flrig) by W1HKJ — transceiver
+  control application.
+
+**Amateur radio apps (apt-installed by the ReticulumHF base + our
+overlay):**
+- [fldigi](https://github.com/wizhippo/fldigi-flrig) (W1HKJ et al.)
+  — digital modes.
+- [WSJT-X](https://sourceforge.net/projects/wsjt/) by Joe Taylor
+  (K1JT) et al. — FT8, JT9, etc.
+- [JS8Call](https://github.com/JS8Call-improved) — originally by
+  Jordan Sherer (KN4CRD), now maintained as JS8Call-improved.
+
+**Operating system:**
+- [Raspberry Pi OS](https://www.raspberrypi.com/software/) (Bookworm
+  aarch64) — the foundation.
+
+If we forgot you, open an issue — we fix credits faster than docs.
 
 ## License
 

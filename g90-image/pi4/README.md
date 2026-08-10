@@ -21,8 +21,8 @@ project got here.
 - `piardopc-binary/` — the 32-bit ARMhf ARDOP softmodem binary
   was kept in `/home/pi/.openclaw/workspace/g90-image/piardopc-binary/`
   in the work tree but was never committed to the repo. It's
-  now in `smeshT/g90digi/bin/piardopc` per the 2026-08-10
-  repo cleanup.
+  in the private fleet-config repo's `bin/piardopc` per the
+  2026-08-10 repo cleanup.
 - `print-styles.css` — generated for the QUICK-START.pdf; not
   version-controlled.
 - `node-portal/templates/` (symlink to `node-portal-templates/`)

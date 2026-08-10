@@ -101,7 +101,7 @@ of `sudo systemctl restart pat@$USER`.
 
 ## When the offline g90 comes online
 
-The dev Pi uses separate per-box askpass wrappers at `~/.local/bin/askpass-<boxname>.sh` that read from `~/.ssh/.<boxname>-pass`. **No real password is ever committed to this repo.** Group-specific credentials (passwords, SSIDs, ZT network IDs) belong in the `smeshT/g90digi` repo (private, group-only), not here.
+The dev Pi uses separate per-box askpass wrappers at `~/.local/bin/askpass-<boxname>.sh` that read from `~/.ssh/.<boxname>-pass`. **No real password is ever committed to this repo.** Group-specific credentials (passwords, SSIDs, ZT network IDs) belong in your private deployment config, not here.
 ## Per-box naming convention (added 2026-08-08)
 
 > **Important for image maintainers:** the AP SSID and
@@ -128,7 +128,7 @@ The dev Pi uses separate per-box askpass wrappers at `~/.local/bin/askpass-<boxn
    sudo systemctl restart node-portal
    ```
 
-> **Customizing the deploy defaults:** the hostname, AP SSID, and ZeroTier network ID baked into this image are **defaults**. Operators should override them via the `bootstrap.sh` script (or by editing the overlay files before first boot). Group-specific values are documented in the `smeshT/g90digi` repo.
+> **Customizing the deploy defaults:** the hostname, AP SSID, and ZeroTier network ID baked into this image are **defaults**. Operators should override them via the `bootstrap.sh` script (or by editing the overlay files before first boot). Group-specific values belong in your private deployment config, not here.
 ## Pi 4 historical
 
 The previous-generation Pi 4 overlay (BCM2711, 32-bit-friendly,
@@ -162,7 +162,7 @@ arm_64bit=1 in config.txt).
 
 ## Group-specific secrets (SSID, password, callsign, freqs)
 
-**None of those go in this repo.** They live in `smeshT/g90digi/`
-(a separate, group-only repo) and are layered onto a captured image
-at deploy time, not at build time. This repo is shareable; the
-fleet-config is not.
+**None of those go in this repo.** They live in your private
+deployment config and are layered onto a captured image at
+deploy time, not at build time. This repo is shareable; your
+secrets are not.
