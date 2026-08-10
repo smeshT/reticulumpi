@@ -249,7 +249,7 @@
         <hr>
 
         <div class="row">
-            <a class="help-link" target="_blank" href="http://{{ host }}/help/flrig" title="FLrig Help Page">FLrig</a>
+            <a class="help-link" target="_blank" href="http://{{ host }}:8081/help/flrig" title="FLrig Help Page">FLrig</a>
             <span class="row-buttons">
                 <form action="/start-flrig" method="post"><button>Start</button></form>
                 <form action="/stop-flrig" method="post"><button class="stop">Stop</button></form>
@@ -257,7 +257,7 @@
         </div>
 
         <div class="row">
-            <a class="help-link" target="_blank" href="http://{{ host }}/help/js8call" title="JS8Call Help Page">JS8Call</a>
+            <a class="help-link" target="_blank" href="http://{{ host }}:8081/help/js8call" title="JS8Call Help Page">JS8Call</a>
             <span class="row-buttons">
                 <form action="/start-js8call" method="post"><button>Start</button></form>
                 <form action="/stop-js8call" method="post"><button class="stop">Stop</button></form>
@@ -265,7 +265,7 @@
         </div>
 
         <div class="row">
-            <a class="help-link" target="_blank" href="http://{{ host }}/help/fldigi" title="FLDigi Help Page">FLDigi</a>
+            <a class="help-link" target="_blank" href="http://{{ host }}:8081/help/fldigi" title="FLDigi Help Page">FLDigi</a>
             <span class="row-buttons">
                 <form action="/start-fldigi" method="post"><button>Start</button></form>
                 <form action="/stop-fldigi" method="post"><button class="stop">Stop</button></form>
@@ -273,7 +273,7 @@
         </div>
 
         <div class="row">
-            <a class="help-link" target="_blank" href="http://{{ host }}/help/wsjtx" title="WSJT-X Help Page">WSJT-X</a>
+            <a class="help-link" target="_blank" href="http://{{ host }}:8081/help/wsjtx" title="WSJT-X Help Page">WSJT-X</a>
             <span class="row-buttons">
                 <form action="/start-wsjtx" method="post"><button>Start</button></form>
                 <form action="/stop-wsjtx" method="post"><button class="stop">Stop</button></form>
@@ -329,9 +329,9 @@
         <hr>
 
         <div class="row">
-            <a class="button" href="http://{{ host }}/">Wifi</a>
-            <a class="button" href="http://{{ host }}/apps">Old Apps</a>
-            <form action="/reboot-pi" method="post" onsubmit="return confirm('Reboot the g90 box now?\n\nThis will disconnect SSH, VNC, the launcher, node-portal, and any active QSOs / Reticulum sessions.\nGive it ~60s before reconnecting.');">
+            <a class="button" target="_blank" href="http://{{ host }}:8081/wifi.html">Wifi</a>
+            <a class="button" target="_blank" href="http://{{ host }}:8080/status">ReticulumHF</a>
+            <form action="/reboot-pi" method="post" onsubmit="return confirm('Reboot the g90 box now?\n\nThis will disconnect SSH, VNC, the launcher, and any active QSOs / Reticulum sessions.\nGive it ~60s before reconnecting.');">
                 <button class="stop">Reboot</button>
             </form>
             <form action="/shutdown-pi" method="post" onsubmit="return confirm('Shut down the g90 box now?\n\nThis will power off the Pi. You will need to physically unplug and replug power (or use the UPS HAT button) to bring it back up.\n\nThis disconnects SSH, VNC, the launcher, node-portal, and any active QSOs / Reticulum sessions.');">

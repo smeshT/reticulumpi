@@ -477,30 +477,33 @@ def stop_patmenu():
 
 @app.route("/start-reticulum", methods=["POST"])
 def start_reticulum():
-    """Start the g90 Reticulum stack: rnsd + meshchat + freedvtnc2
-    (KISS TNC for the mesh). The g90's services are named
-    reticulumhf-rnsd (not the generic rnsd the sbitx box uses) and
-    reticulum-meshchat. freedvtnc2.service is the KISS TNC that
-    serves the mesh on tcp:8001; it is intentionally NOT enabled
-    at boot (it would crashloop without a G90 plugged in). The
-    launcher's Reticulum Stack: Start button is the canonical
+    """Start the g90 Reticulum stack: rnsd + meshchat + freedvtnc2.
+    The launcher's Reticulum Stack: Start button is the canonical
     trigger for the full Reticulum side of the box.
 
-    We reset-failed first because freedvtnc2 can land in systemd's
-    rate-limited "failed" state if it crashloops (e.g. the user
-    clicked Start before plugging in the G90, or the radio was
-    unplugged mid-QSO). The unit's StartLimitBurst=5 / interval=60s
-    means that after 5 fast failures, `systemctl start` is a no-op
-    until you `systemctl reset-failed`. Doing the reset here makes
-    the Start button idempotent across the boot-without-radio case.
+    Architecture (per 2026-08-09 refactor):
+    - rnsd is the master daemon on @rns/default (always runs
+      once started, no modem dependencies)
+    - meshchat is the LXMF chat client (Requires=rnsd)
+    - freedvtnc2 is the KISS TNC for the G90 (independent; will
+      fail gracefully if no audio device is plugged in)
+
+    Order matters: rnsd must start first to bind @rns/default
+    before meshchat connects (the sbitx 2026-08-07 master-race
+    fix). meshchat comes up as a client. freedvtnc2 is a separate
+    sub-system that connects to rnsd via TCP.
+
+    reset-failed clears any rate-limited "failed" state from
+    freedvtnc2 crashlooping (when the G90 isn't plugged in).
+    StartLimitBurst=5/interval=60s means after 5 fast failures,
+    systemctl start is a no-op until reset-failed runs.
     """
-    # Order matters: rnsd first (the daemon the other two depend on),
-    # then meshchat (broadcasts announces), then freedvtnc2 (the KISS
-    # TNC the mesh uses as a modem). freedvtnc2.service itself has
-    # After=network.target rigctld.service and Wants=rigctld.service,
-    # so systemd will additionally wait for rigctld before starting
-    # the TNC.
+    # Reset-failed first so freedvtnc2's crashloop on boot-without-radio
+    # doesn't make this Start button a no-op.
     systemctl("reset-failed", "reticulumhf-rnsd.service", "reticulum-meshchat.service", "freedvtnc2.service")
+    # rnsd first (master daemon), then meshchat (client), then freedvtnc2 (independent modem).
+    # systemd's per-unit After= chain handles the ordering; the explicit
+    # order in this list is documentation, not a hard contract.
     systemctl("start", "reticulumhf-rnsd.service", "reticulum-meshchat.service", "freedvtnc2.service")
     return redirect(url_for("index"))
 
@@ -534,7 +537,7 @@ def reset_audio():
     ALSA handles (reticulum-meshchat, reticulumhf-rnsd, freedvtnc2),
     then restarts the noVNC session so the X server cycle clears any
     stale audio clients. The shared launcher's web UI is itself served
-    on :8090, independent of the noVNC session on :6080, so the
+    on :80, independent of the noVNC session on :6080, so the
     launcher stays up throughout the reset.
 
     Sequence is ordered: stop the leaf first (meshchat), then the
@@ -691,24 +694,17 @@ def update_from_server():
 
 
 if __name__ == "__main__":
-    # Listen on 0.0.0.0:8090 (same port as sbitx's my-launcher for
-    # cross-box consistency). node-portal owns :80 on the g90, so this
-    # MUST be 8090 (or higher).
+    # Listen on 0.0.0.0:80 (the g90's entry-point port). The
+    # shared launcher is the captive-portal homepage on the g90
+    # (per @Mmsp907 2026-08-09); node-portal is on :8081 and
+    # reticulumhf-portal on :8080. The 2026-07-19 port-80 incident
+    # (commit a461f3b) is the historical reason we are careful
+    # here: the launcher unit MUST set Environment=LAUNCHER_PORT=80
+    # for Linux to allow binding :80 from User=pi without root
+    # (setcap cap_net_bind_service=+ep /usr/bin/python3.11).
     #
-    # History: commit a461f3b (the waterfall tool) introduced
-    # `LAUNCHER_PORT` and set its default to 80, intending to make
-    # the g90 launcher the port-80 home page. But the g90's
-    # node-portal already owns :80, and the shared launcher's
-    # systemd unit was never updated to set LAUNCHER_PORT=80.
-    # Result: every g90 that pulled a461f3b crash-looped on
-    # "Address already in use" the moment systemd tried to start
-    # the launcher. The launcher went down; node-portal kept
-    # serving :80. This was undetected in CI because the test
-    # sled binds 9090 and the unit file's comment said :8090.
-    #
-    # Fix: hardcode 8090 here. If a future commit wants the
-    # launcher on a different port, update BOTH the g90-shared-
-    # launcher.service unit (with Environment=LAUNCHER_PORT=)
-    # AND this default. Keep them in sync.
-    port = int(os.environ.get("LAUNCHER_PORT", "8090"))
+    # If a future commit wants the launcher on a different port,
+    # update BOTH the g90-shared-launcher.service unit (with
+    # Environment=LAUNCHER_PORT=) AND this default. Keep them in sync.
+    port = int(os.environ.get("LAUNCHER_PORT", "80"))
     app.run(host="0.0.0.0", port=port)
