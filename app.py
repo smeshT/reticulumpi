@@ -208,7 +208,7 @@ def get_zerotier_network_id():
 
 def _get_launcher_version():
     """Return the launcher's current version tag, e.g. 'v0.3'. The
-    tag is set on the bare repo at /home/pi/repos/g90-launcher.git
+    tag is set on the bare repo at /home/pi/repos/reticulumpi.git
     with each release; `git describe --tags --abbrev=0` returns the
     most recent tag reachable from HEAD. If the working tree has
     no tag reachable (e.g. fresh clone before any tag was pushed),
@@ -622,7 +622,7 @@ def shutdown_pi():
 @app.route("/update-from-server", methods=["POST"])
 def update_from_server():
     """Pull the latest from the central repo at
-    pi@nomadpi.local:/home/pi/repos/g90-launcher.git and
+    pi@nomadpi.local:/home/pi/repos/reticulumpi.git and
     restart the launcher service. The g90 is a clone of
     that repo, so a `git pull --ff-only` brings in any
     new commits the workspace has pushed.

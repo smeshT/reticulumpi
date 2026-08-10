@@ -69,7 +69,7 @@ g90-image/node-portal/templates
 g90-image/node-portal/__pycache__/
 g90-image/node-portal/app.py.bak-*
 
-# Digipify backup tarballs (group-specific, go in g90-fleet-config)
+# Digipify backup tarballs (group-specific, go in smeshT/g90digi)
 g90-digipify-bu/
 
 # Other workspace files that crept in

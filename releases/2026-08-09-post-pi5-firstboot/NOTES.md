@@ -93,7 +93,7 @@ BEFORE flashing. The bundled defaults are:
   `g90-image/config/reticulumhf-config.env` before flashing, or set
   the AP password at first boot via the captive portal.
 - **ZeroTier is NOT pre-configured.** Operators add their own ZT
-  network via `g90-fleet-config/etc-captures/<box>/<...>` instructions.
+  network via `smeshT/g90digi/etc-captures/<box>/<...>` instructions.
 
 ## Source
 

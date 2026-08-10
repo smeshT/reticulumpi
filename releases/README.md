@@ -43,7 +43,7 @@ Pi 4 + Pi 5 dual-arch (64-bit) Raspberry Pi image with Reticulum + FreeDV digita
 
 These defaults are the public-release baseline. The actual values used
 by a deployed fleet are operator-specific and live in the private
-`g90-fleet-config.git` repo (see the `Repo layout` note below).
+`smeshT/g90digi` repo (see the `Repo layout` note below).
 
 ## What's in the box
 
@@ -134,12 +134,12 @@ sudo sed -i 's/g90digi/<your-hostname>/g' /mnt/cmdline.txt
 
 ### Rebuild from source
 
-The image is built on top of [ReticulumHF](https://github.com/reticulumrf/reticulumhf-base), with our g90 overlay layered on top. See `g90-launcher.git` and `g90-image-Pi5.git` for the overlay sources.
+The image is built on top of [ReticulumHF](https://github.com/reticulumrf/reticulumhf-base), with our g90 overlay layered on top. See `smeshT/reticulumpi` for the source — both Pi 4 and Pi 5 overlays are merged into that single repo.
 
 ```bash
 # Pull the latest overlay
-git clone https://github.com/smeshT/g90-launcher.git
-git clone https://github.com/smeshT/g90-image-Pi5.git
+git clone https://github.com/smeshT/reticulumpi.git
+git clone https://github.com/smeshT/reticulumpi.git
 
 # Build the image with pi-gen + the overlay
 # (build script TBD — for now, see memory/g90-project.md in the

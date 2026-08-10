@@ -11,5 +11,5 @@
 #   sed -i 's/PASSWORD_FROM_SECRET_STORE/PASSWORD/' ~/.local/bin/askpass-<boxname>.sh
 #
 # ⚠️  NEVER commit this file with a real password inside.
-# Group-specific values go in the g90-fleet-config repo, not here.
+# Group-specific values go in the smeshT/g90digi repo, not here.
 echo "PASSWORD_FROM_SECRET_STORE"

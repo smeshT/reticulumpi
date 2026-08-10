@@ -177,13 +177,12 @@ for both fleet boxes.
 
 - **One canonical image** at `/REMOTE/pi_images/`,
   named `g90digi-<date>-<label>.img.xz`
-- **Source recipe in git**: `g90-image-Pi5.git` (Pi 5
-  overlay) + ReticulumHF base + g90-launcher.git
-  (Flask + systemd). Both Pi 4 and Pi 5 deployments
-  pull from the same recipe.
+- **Source recipe in git**: `smeshT/reticulumpi` (Pi 4 + Pi 5
+  overlay, dual-arch) + ReticulumHF base. Single
+  repo, both architectures pull from the same recipe.
 - **Rebuild on demand** when needed (~30 min: dd +
   pishrink + xz -T0 -6). Don't preemptively rebuild.
-- **Pi 4 historical** stays in `g90-launcher.git/g90-image/`.
+- **Pi 4 historical** stays in `reticulumpi.git/g90-image/`.
   We don't maintain a separate Pi 4 fork unless active
   Pi 4 work needs it.
 

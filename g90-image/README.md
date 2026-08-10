@@ -9,7 +9,7 @@ having to re-derive them.
 
 The **shared launcher** (Flask app, port **8090** — the wifi clients' home page) lives in
 the **parent** of this folder. It is a git clone of
-`/home/pi/repos/g90-launcher.git` on the nomadpi, NOT a
+`/home/pi/repos/reticulumpi.git` on the nomadpi, NOT a
 direct copy. The full architecture is documented in
 `memory/g90-project.md`.
 
@@ -32,7 +32,7 @@ crash-loop postmortem; fix is in commit `b80a0a1`
 
 The workspace at `/home/pi/.openclaw/workspace/g90-shared-launcher/`
 is a git working tree. The bare repo at
-`/home/pi/repos/g90-launcher.git` is the central pull
+`/home/pi/repos/reticulumpi.git` is the central pull
 target. Each g90 is a clone of that bare repo.
 
 ```bash
@@ -59,7 +59,7 @@ ssh-keygen -t ed25519 -N "" -f /home/pi/.ssh/id_ed25519
 cat /home/pi/.ssh/id_ed25519.pub  # copy to nomadpi's authorized_keys
 
 # 2. Clone the launcher
-sudo -A -u pi git clone pi@nomadpi.local:/home/pi/repos/g90-launcher.git /home/pi/shared_launcher
+sudo -A -u pi git clone pi@nomadpi.local:/home/pi/repos/reticulumpi.git /home/pi/shared_launcher
 sudo chown -R pi:pi /home/pi/shared_launcher
 
 # 3. Install the systemd unit
@@ -112,7 +112,7 @@ of `sudo systemctl restart pat@$USER`.
 
 ## When the offline g90 comes online
 
-The dev Pi uses separate per-box askpass wrappers at `~/.local/bin/askpass-<boxname>.sh` that read from `~/.ssh/.<boxname>-pass`. **No real password is ever committed to this repo.** Group-specific credentials (passwords, SSIDs, ZT network IDs) belong in the `g90-fleet-config` repo (private, group-only), not here.
+The dev Pi uses separate per-box askpass wrappers at `~/.local/bin/askpass-<boxname>.sh` that read from `~/.ssh/.<boxname>-pass`. **No real password is ever committed to this repo.** Group-specific credentials (passwords, SSIDs, ZT network IDs) belong in the `smeshT/g90digi` repo (private, group-only), not here.
 ## Per-box naming convention (added 2026-08-08)
 
 > **Important for image maintainers:** the AP SSID and
@@ -139,7 +139,7 @@ The dev Pi uses separate per-box askpass wrappers at `~/.local/bin/askpass-<boxn
    sudo systemctl restart node-portal
    ```
 
-> **Customizing the deploy defaults:** the hostname, AP SSID, and ZeroTier network ID baked into this image are **defaults**. Operators should override them via the `bootstrap.sh` script (or by editing the overlay files before first boot). Group-specific values are documented in the `g90-fleet-config` repo.
+> **Customizing the deploy defaults:** the hostname, AP SSID, and ZeroTier network ID baked into this image are **defaults**. Operators should override them via the `bootstrap.sh` script (or by editing the overlay files before first boot). Group-specific values are documented in the `smeshT/g90digi` repo.
 ## Pi 4 historical
 
 The previous-generation Pi 4 overlay (BCM2711, 32-bit-friendly,
@@ -173,7 +173,7 @@ arm_64bit=1 in config.txt).
 
 ## Group-specific secrets (SSID, password, callsign, freqs)
 
-**None of those go in this repo.** They live in `g90-fleet-config/`
+**None of those go in this repo.** They live in `smeshT/g90digi/`
 (a separate, group-only repo) and are layered onto a captured image
 at deploy time, not at build time. This repo is shareable; the
 fleet-config is not.
