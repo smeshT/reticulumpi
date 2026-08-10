@@ -72,7 +72,7 @@ For build problems: open an issue at
 - **Wifi dongle** Optional for connecting to existing wifi network. AP
   network works with and without dongle. (Panda PAU3 tested)
 - **G90 / QYT KT-8900D** radio (will work with others but untested)
-- **Radio Interface** DigiRig or Xiegu CE/DE-19 sound card (USB)
+- **Radio Interface** DigiRig or Xiegu CE/DE-19 (for G90) sound card (USB)
 - **FTDI cable** for CAT control (USB)
 - **SanDisk Ultra Fit** USB drive (28 GB minimum)
 
