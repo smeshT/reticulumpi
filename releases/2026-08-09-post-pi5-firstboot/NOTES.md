@@ -7,11 +7,28 @@ g90 / sbitx HF radio fleet. Captured live from the g90digi Pi 5 (Pi 5 2GB,
 SanDisk Ultra Fit 28 GB USB drive) on 2026-08-09.
 
 - MD5: `a20ead9a6ec7914c6c4d9f35052bd446`
+- SHA-256: `269a7fdf956f789b98f01cf6ce96d21fe36910b3bb5a5a00895dd17fe4921e9b`
 - Compressed size: 987 MB
 - Decompressed size: ~5.9 GB (pishrink'd from 28 GB raw)
 - Architecture: dual-arch (Pi 4 + Pi 5 in 64-bit mode)
+- GitHub Release: <https://github.com/smeshT/reticulumpi/releases/tag/v0.5>
 
 ## How to flash
+
+Use [Raspberry Pi Imager](https://www.raspberrypi.com/software/):
+
+1. Choose OS → scroll to bottom → "Use custom"
+2. Select the downloaded `.img.xz` (Pi Imager handles xz decompression)
+3. Choose Storage → select your SD card or USB drive
+4. (Recommended) Click the gear icon and set your operator values:
+   - hostname
+   - username/password (CHANGE from defaults!)
+   - WiFi credentials
+5. Write. Wait for Pi Imager's verify step.
+
+Plug the drive into a Raspberry Pi 4 (64-bit) or Pi 5 and power on.
+
+Or via dd:
 
 ```bash
 xzcat pi5-g90digi-8-9-26.img.xz | sudo dd of=/dev/sdX bs=4M conv=fsync status=progress
@@ -35,6 +52,23 @@ MD5: `a20ead9a6ec7914c6c4d9f35052bd446`
 SHA-256: `269a7fdf956f789b98f01cf6ce96d21fe36910b3bb5a5a00895dd17fe4921e9b`
 Size: 987 MB compressed (~5.9 GB pishrunk / 28.7 GB raw)
 
+### To fetch
+
+**Primary download (public, anyone can use):**
+
+The 2026-08-09 image is published as a GitHub Release on the
+[smeshT/reticulumpi](https://github.com/smeshT/reticulumpi/releases/tag/v0.5)
+repo. Click the `.img.xz` asset in the release page to
+download via your browser, or use curl:
+
+```bash
+curl -L -O https://github.com/smeshT/reticulumpi/releases/download/v0.5/pi5-g90digi-8-9-26.img.xz
+```
+
+If you're on the g90 group's LAN or ZeroTier, the same image
+is also hosted on the dev Pi (`nomadpi`, on ZeroTier) for
+faster downloads. Ask the group operator for the current URL.
+
 ### To fetch (laptop / another box on ZT / LAN)
 
 If you happen to be on the g90 group's LAN or ZeroTier, the
@@ -51,14 +85,6 @@ scp pi@<box-lan-ip>:/media/pi/REMOTE/pi_images/pi5-g90digi-8-9-26.img.xz .
 # ZeroTier IP (g90digi's current ZT IP)
 scp pi@<box-zt-ip>:/media/pi/REMOTE/pi_images/pi5-g90digi-8-9-26.img.xz .
 ```
-
-Public readers: don't have access. Build from source instead
-(see [`g90-image/QUICK-START.md`](../../g90-image/QUICK-START.md)).
-
-**HTTP download (group-only, 2026-08-10+):** the g90 group has
-a pre-built image available over ZeroTier. Public readers
-should use the `scp` paths above (which only work if you happen
-to be on the same LAN) or build from source.
 
 After download, verify:
 

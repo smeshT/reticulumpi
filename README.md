@@ -17,13 +17,14 @@ Built with much AI assistance; Openclaw and Minimax M3
 ## Build your own
 
 The `.img.xz` binary isn't shipped in this repo (1 GB is too big
-for git + we don't have github release infrastructure wired up).
-You build it yourself from this repo + a stock ReticulumHF base
-image.
+for git). **A pre-built image is published as a GitHub Release:**
+[v0.5 (2026-08-09)](https://github.com/smeshT/reticulumpi/releases/tag/v0.5).
+Download it from there if you want a ready-to-flash image — no
+build required.
 
-Full step-by-step recipe: **[`BUILD.md`](BUILD.md)**.
-
-The short version: download the
+If you'd rather build it yourself from this repo + a stock
+ReticulumHF base image, the end-to-end recipe is in
+[`BUILD.md`](BUILD.md). The short version: download the
 [ReticulumHF](https://github.com/LFManifesto/ReticulumHF/releases/)
 base image (also linked from the
 [Light Fighter resources](https://lightfightermanifesto.org/resources/)),

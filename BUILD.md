@@ -5,6 +5,12 @@ This is the **end-to-end recipe** for building a g90 box
 for a Xiegu G90 / QYT KT-8900D HF radio) starting from a
 stock ReticulumHF base image.
 
+> **Don't want to build it yourself?** A pre-built image is
+> published as a GitHub Release on the
+> [smeshT/reticulumpi](https://github.com/smeshT/reticulumpi/releases/tag/v0.5)
+> repo — download the `.img.xz` asset and flash it. No build
+> step required.
+
 ## What you need
 
 - **Raspberry Pi 4 (2GB+) or Pi 5 (2GB+)** — 64-bit mode
