@@ -32,6 +32,7 @@ years). The canonical copy lives on the dev Pi (nomadpi) at:
 ```
 
 MD5: `a20ead9a6ec7914c6c4d9f35052bd446`
+SHA-256: `269a7fdf956f789b98f01cf6ce96d21fe36910b3bb5a5a00895dd17fe4921e9b`
 Size: 987 MB compressed (~5.9 GB pishrunk / 28.7 GB raw)
 
 ### To fetch (laptop / another box on ZT / LAN)
@@ -53,11 +54,21 @@ Or via the dev Pi (nomadpi) direct:
 scp pi@nomadpi.local:/media/pi/REMOTE/pi_images/pi5-g90digi-8-9-26.img.xz .
 ```
 
-After download, verify MD5:
+**HTTP download (ZT-only, 2026-08-10+):** if you're on ZeroTier
+network `zttqh5myou`, the dev Pi now also serves these images over
+HTTP. The ZT URL is published in the private companion repo
+([`smeshT/g90digi`](https://github.com/smeshT/g90digi)). Public
+readers don't have ZT access and should use the `scp` paths above.
+
+After download, verify:
 
 ```bash
 md5sum pi5-g90digi-8-9-26.img.xz
 # expected: a20ead9a6ec7914c6c4d9f35052bd446
+
+# Or SHA-256 (stronger):
+sha256sum pi5-g90digi-8-9-26.img.xz
+# expected: 269a7fdf956f789b98f01cf6ce96d21fe36910b3bb5a5a00895dd17fe4921e9b
 ```
 
 ## What's in the overlay
