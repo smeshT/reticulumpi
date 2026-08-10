@@ -1,0 +1,21 @@
+# Image manifest
+radio:      g90digi
+hostname:   g90digi
+label:      post-overlay-shrunk
+date:       2026-08-09
+source:     /dev/sda on g90digi (Pi 5 2GB, SanDisk Ultra Fit 28 GB)
+            dd'd live on 2026-08-09 to pi5-g90digi-8-9-26.img (28.7 GB raw)
+pipeline:
+  1. dd /dev/sda (laptop, 28.7 GB raw)
+  2. pishrink: e2fsck, resize2fs -M, truncate to 6.3 GB
+  3. xz -T0 -6 → 986 MB compressed
+output:     pi5-g90digi-8-9-26.img.xz
+output_md5: a20ead9a6ec7914c6c4d9f35052bd446
+output_size_bytes: 1034088336 (986 MB)
+compress:   xz -T0 -6 (parallel, level 6)
+notes:      g90digi Pi 5 image with ReticulumHF base + g90 overlay.
+            Boot partition: 512 MB FAT32.
+            Root partition: 5.4 GB ext4 (auto-expands on first boot
+            via /etc/rc.local added by pishrink).
+            Image captured live; e2fsck -f was run by pishrink to
+            repair any inconsistencies from the live dd.
