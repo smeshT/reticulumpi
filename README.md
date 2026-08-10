@@ -1,8 +1,16 @@
 # reticulumpi
 
-Pi 4 / Pi 5 dual-arch Raspberry Pi image with Reticulum + FreeDVtnc2
-digital modes, pre-configured for the g90 / QYT KT-8900D mobile
-radio (will work with others but untested).
+This is a very much a wrok-in-progrees image build for a Raspberry pi 
+to allow HF digital mode comms over a wifi connection to a PC or phone. 
+Built on top of Light Fighter Manifesto's ReticulumHF 
+(https://github.com/LFManifesto/ReticulumHF) it adds a wifi setup page 
+to connect to your wifi network (must add a USB wifi dongle to the pi) and an apps launcher page to start 
+your favorite digital modem. Includes JS8Call, WSJT-X, FlRig, FlDigi 
+and PATmenu (not currently working).
+On the Reticulum side it adds Meshchat to enable running your own
+node from the pi and connecting other interfaces to a central hub
+rather than from the EUD. Freedvtnc2 is able to be ran as a freestanding keyboard chat app
+as well to allow direct testing of the hf transport medium. 
 
 ## Build your own
 
