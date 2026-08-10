@@ -8,9 +8,8 @@ same edits can be reapplied to a fresh flash without
 having to re-derive them.
 
 The **shared launcher** (Flask app, port **8090** — the wifi clients' home page) lives in
-the **parent** of this folder. It is a git clone of
-`/home/pi/repos/reticulumpi.git` on the nomadpi, NOT a
-direct copy. The full architecture is documented in
+the **parent** of this folder. It is a git clone of this repo,
+NOT a direct copy. The full architecture is documented in
 `memory/g90-project.md`.
 
 The **node-portal** (Flask app, port **80** — the wifi
@@ -54,26 +53,16 @@ git push origin master
 ```bash
 # On the g90 (after a fresh flash + firstboot):
 
-# 1. Generate an SSH key (for git pull from the nomadpi)
-ssh-keygen -t ed25519 -N "" -f /home/pi/.ssh/id_ed25519
-cat /home/pi/.ssh/id_ed25519.pub  # copy to nomadpi's authorized_keys
-
-# 2. Clone the launcher
-sudo -A -u pi git clone pi@nomadpi.local:/home/pi/repos/reticulumpi.git /home/pi/shared_launcher
+# 1. Clone this repo
+sudo -A -u pi git clone https://github.com/smeshT/reticulumpi.git /home/pi/shared_launcher
 sudo chown -R pi:pi /home/pi/shared_launcher
 
-# 3. Install the systemd unit
+# 2. Install the systemd unit
 sudo cp /home/pi/shared_launcher/g90-shared-launcher.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now g90-shared-launcher.service
 
-# 4. (If migrating from an old direct-copy install) move the
-#    old /home/pi/shared_launcher out of the way first
-sudo mv /home/pi/shared_launcher /home/pi/shared_launcher.old
-
-# 5. Then proceed with steps 2-3
-
-# 6. Copy the g90-image/ contents into place (only the
+# 3. Copy the g90-image/ contents into place (only the
 #    files the g90 image's firstboot didn't set up itself):
 #    - config/reticulumhf-config.env -> /etc/reticulumhf/config.env
 #    - config/hostapd.conf -> /etc/hostapd/hostapd.conf

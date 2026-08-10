@@ -36,19 +36,26 @@ template, the overlay, and the build recipe.
 
 ## Quick start (for a fresh deploy)
 
-```bash
-# 1. Get the .img.xz from the dev Pi
-scp pi@nomadpi.local:/media/pi/REMOTE/pi_images/pi5-g90digi-8-9-26.img.xz .
+This is the **recipe-only** path. The 1 GB binary isn't published
+to github (too big for git + no release infrastructure wired up).
+Build it from this repo + a stock ReticulumHF image — full
+instructions in [`g90-image/QUICK-START.md`](g90-image/QUICK-START.md).
 
-# 2. Verify MD5
+The **g90 group** (operators of the deployed fleet) has a pre-built
+image available over ZeroTier — see the private companion repo at
+[`smeshT/g90digi`](https://github.com/smeshT/g90digi) for the URL.
+Public readers can't reach it.
+
+```bash
+# 1. Verify after download:
 md5sum pi5-g90digi-8-9-26.img.xz
 # expected: a20ead9a6ec7914c6c4d9f35052bd446
 
-# 3. Flash to USB drive / SD card
+# 2. Flash to USB drive / SD card
 xzcat pi5-g90digi-8-9-26.img.xz | sudo dd of=/dev/sdX bs=4M conv=fsync status=progress
 
-# 4. Boot the Pi, log in (default pi / hfp123 — CHANGE THIS)
-#    The shared launcher is at http://g90digi.local:8090/
+# 3. Boot the Pi, log in (default pi / hfp123 — CHANGE THIS)
+#    The shared launcher is at http://g90digi.local/
 ```
 
 See `g90-image/QUICK-START.md` for the full first-boot guide.

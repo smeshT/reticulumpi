@@ -54,11 +54,12 @@ Or via the dev Pi (nomadpi) direct:
 scp pi@nomadpi.local:/media/pi/REMOTE/pi_images/pi5-g90digi-8-9-26.img.xz .
 ```
 
-**HTTP download (ZT-only, 2026-08-10+):** if you're on ZeroTier
-network `zttqh5myou`, the dev Pi now also serves these images over
-HTTP. The ZT URL is published in the private companion repo
-([`smeshT/g90digi`](https://github.com/smeshT/g90digi)). Public
-readers don't have ZT access and should use the `scp` paths above.
+**HTTP download (group-only, 2026-08-10+):** the g90 group has
+a pre-built image available over ZeroTier. The URL is published
+in the private companion repo ([`smeshT/g90digi`](https://github.com/smeshT/g90digi))
+and is reachable only by group members. Public readers should
+use the `scp` paths above (which only work if you happen to be
+on the same LAN) or build from source.
 
 After download, verify:
 
