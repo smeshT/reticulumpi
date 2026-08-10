@@ -19,3 +19,112 @@ venv/
 # session-specific (memory_search uses these but not for code)
 *.pid
 *.sock
+
+# g90 project: launcher + image overlay (the project files we own)
+# This file's job is to keep non-g90 noise out of the repo.
+
+# Other agents' workspaces and project files (deflock, salon, etc.)
+deflock/
+salon/
+construction-company*
+Working/
+Working*
+STRATEGIC-NOTES.md
+TIMESHEET.md
+INFRASTRUCTURE.md
+
+# Agent config files (AGENTS.md, MEMORY.md, SOUL.md, etc. live in
+# /home/pi/.openclaw/workspace*/ and are agent-internal, not project code)
+AGENTS.md
+HEARTBEAT.md
+IDENTITY.md
+MEMORY.md
+SOUL.md
+TOOLS.md
+USER.md
+
+# Session-state and runtime noise
+homeserver.db
+homeserver.log
+homeserver.log.*
+.image-review/
+.openclaw/
+.samba-account
+current_pw.txt
+media/
+openclaw-workspace-state.json
+package-lock.json
+__pycache__/
+*.pid
+*.sock
+*.deb
+
+# Image-related output that's not in the repo
+# (captured .img files live in /media/pi/REMOTE/pi_images/)
+g90-image/QUICK-START.html
+g90-image/QUICK-START.pdf
+g90-image/print-styles.css
+g90-image/piardopc-binary/
+g90-image/node-portal/templates
+g90-image/node-portal/__pycache__/
+g90-image/node-portal/app.py.bak-*
+
+# Digipify backup tarballs (group-specific, go in g90-fleet-config)
+g90-digipify-bu/
+
+# Other workspace files that crept in
+scripts/apply-secrets.py
+scripts/OPENCLAW-REPAIR.md
+scripts/SECRETS-MIGRATION.md
+scripts/secrets-migration-plan.json
+scripts/slate-*
+scripts/deflock-*
+scripts/laptop-bu-*
+scripts/remote-master-*
+scripts/samba-*
+scripts/pricepoller/
+scripts/install-cron.sh
+scripts/install-remind-cron.sh
+scripts/media-relocator.sh
+scripts/start_desktop*
+scripts/stop_desktop*
+scripts/start_pavucontrol.sh
+scripts/stop_pavucontrol.sh
+
+# Slate's parallel g90-launcher/scripts/ files (desktop launcher kit,
+# not part of the g90 HF-radio project). The g90 project only owns
+# ardop_ptt_bridge.py, g90-flrig, and systemd/.
+g90-launcher/scripts/start_desktop*.sh
+g90-launcher/scripts/stop_desktop*.sh
+g90-launcher/scripts/start_fldigi.sh
+g90-launcher/scripts/stop_fldigi.sh
+g90-launcher/scripts/start_freedata.sh
+g90-launcher/scripts/stop_freedata.sh
+g90-launcher/scripts/start_gridtracker.sh
+g90-launcher/scripts/stop_gridtracker.sh
+g90-launcher/scripts/start_js8call.sh
+g90-launcher/scripts/stop_js8call.sh
+g90-launcher/scripts/start_patmenu.sh
+g90-launcher/scripts/stop_patmenu.sh
+g90-launcher/scripts/start_pavucontrol.sh
+g90-launcher/scripts/stop_pavucontrol.sh
+g90-launcher/scripts/start_reticulum.sh
+g90-launcher/scripts/stop_reticulum.sh
+g90-launcher/scripts/start_wsjtx.sh
+g90-launcher/scripts/stop_wsjtx.sh
+g90-launcher/scripts/start_flrig.sh
+g90-launcher/scripts/stop_flrig.sh
+g90-launcher/scripts/start_waterfall.sh
+g90-launcher/start_my_launcher.sh
+g90-launcher/waterfall/
+g90-test-launcher.service
+
+# Daily memory logs live in the agent's memory/ dir, not in the project
+# repo. g90-canonical reference files (g90-project.md, etc.) are
+# excluded from the repo on purpose — they're agent-curated, not code.
+memory/
+
+# g90-image-Pi5/ is the OLD work tree; the overlay moved to
+# g90-image-pi5/ at the top of this repo (2026-08-10). The old
+# work tree will be deleted in the follow-up commit.
+g90-image-Pi5/
