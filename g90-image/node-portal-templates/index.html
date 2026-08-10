@@ -146,7 +146,7 @@ ZeroTier: {{ zt_ip if zt_ip else 'Not joined' }}
     <button type="submit">Disconnect WiFi</button>
     <span>
         Disable WiFi connection and use the {{ ap_name }} access point instead.
-        Connect your device to the "{{ ap_name }}" wifi network, pw "135g90xu" and type "{{ hostname }}.local" in your browser.
+        Connect your device to the "{{ ap_name }}" wifi network, pw "{{ ap_password or "<set at deploy>" }}" and type "{{ hostname }}.local" in your browser.
     </span>
 </form>
 

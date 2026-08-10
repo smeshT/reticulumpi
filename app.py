@@ -145,7 +145,7 @@ def get_zerotier_ip():
     except (subprocess.CalledProcessError, FileNotFoundError):
         return None
     for line in out.splitlines():
-        # "5: zttqh5myou    inet 10.59.42.91/24 ..."
+        # "5: <ifname>  inet <ip>/<prefixlen> ..."
         if ":" not in line:
             continue
         # Split only on the first colon

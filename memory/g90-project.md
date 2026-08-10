@@ -23,16 +23,14 @@ mobile.
 
 **Current deployed units (2026-07-07):**
 - `g90f1r2` — shipping unit, just renamed. mDNS
-  `g90f1r2.local`, ZeroTier IP 10.59.42.236.
+  `g90f1r2.local`, ZeroTier IP <shipping-box-ZT-IP>.
 - `g90digi` — offline unit, original hostname.
-  mDNS `g90digi.local` (no longer collides with
-  the shipping g90), ZeroTier IP unknown.
+  mDNS `g90digi.local` (no longer collides with the shipping g90), ZeroTier IP unknown.
 
 **Historically configured ZeroTier IPs** (probably
-dead; use mDNS or LAN IP first): 10.59.42.236
-(shipping), 10.59.42.237 (was a different config
+dead; use mDNS or LAN IP first): <shipping-box-ZT-IP> (shipping), <other-ZT-IP> (was a different config
 in earlier sessions; current address is whatever
-ZeroTier assigns now). sbitx's 10.59.42.236 was
+ZeroTier assigns now). sbitx's <ZT-IP> was
 also dead for a while — see `memory/MEMORY.md`.
 
 **The g90 box is currently OFFLINE** as of 2026-07-07
@@ -77,7 +75,8 @@ attached when systemd's Popen runs a child). The
 workaround is the askpass helper:
 
 - `/home/pi/.local/bin/askpass-g90.sh` —
-  `#!/bin/bash\necho "6292"` (the g90 box's user
+  `#!/bin/bash
+echo "<password-from-secret-store>"` (the g90 box's user
   password)
 - Use: `SUDO_ASKPASS=/home/pi/.local/bin/askpass-g90.sh
   sudo -A <cmd>`
@@ -160,7 +159,7 @@ but the bootloader prefers `kernel8.img` when
   sudo rm /var/lib/zerotier-one/identity.*
   sudo systemctl start zerotier-one
   # Then re-join the network:
-  sudo zerotier-cli join 3b19b3a71665c6c2
+  sudo zerotier-cli join <ZT-network-id>
   ```
 - For a different hostname: edit `/etc/hostname` and
   `/etc/hosts` before first boot (or `hostnamectl set-hostname`
@@ -533,8 +532,8 @@ scp g90-shared-launcher/g90-image/node-portal-templates/index.html \
 
 **Note for the offline g90:** the workspace snapshot
 at `g90-image/config/{reticulumhf-config.env,hostapd.conf}`
-has the **shipping g90's** AP values (`g90f1r2-AP`,
-password `135g90xu`). If the user wants the offline
+has the **shipping g90's** AP values (`g90f1r2`,
+password `CHANGE_ME`). If the user wants the offline
 g90 to keep its original `g90digi` AP SSID, skip
 those two files when pushing. If the user wants
 both g90s to share the same AP, push them as-is.
@@ -615,7 +614,7 @@ See the addendum below for the full trade-off.
 
 **Two g90s as of this date:**
 - **Shipping g90** (`g90f1r2`) — hostname `g90f1r2`,
-  AP SSID `g90f1r2-AP`, AP password `135g90xu`. Same
+  AP SSID `g90f1r2`, AP password `CHANGE_ME`. Same
   password/askpass as before (user wants both g90s to
   share credentials so user can always SSH in
   remotely).
@@ -649,13 +648,13 @@ g90 if anyone ever runs it there.
 **For the offline g90 (when it's online):** the
 workspace snapshot at
 `g90-image/config/{reticulumhf-config.env,hostapd.conf}`
-has the **shipping g90's** values (g90f1r2-AP). The
+has the **shipping g90's** values (g90f1r2). The
 user can either:
 - Push the snapshot as-is (offline g90 gets the new
-  SSID too — both g90s would broadcast `g90f1r2-AP`
+  SSID too — both g90s would broadcast `g90f1r2`
   which is confusing)
 - Update the snapshot first to give the offline g90
-  its own SSID (e.g. `g90digi-AP`) before pushing
+  its own SSID (e.g. `g90digi`) before pushing
 - Skip the hostapd.conf / config.env updates
   entirely (offline g90 keeps the old SSID
   `g90digi` and the offline g90's mDNS name remains

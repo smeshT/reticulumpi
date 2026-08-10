@@ -1,3 +1,10 @@
+# QUICK-START
+
+> **⚠️  This is a template. All `CHANGE_ME` values must be replaced
+> before flashing the image.** The actual values are operator-specific
+> (your callsign, your SSID/password, your ZeroTier network ID) and
+> belong in your deployment config, not in this public recipe.
+
 # g90 Quick Start
 
 _A printed sheet for the new owner of the g90digi box._
@@ -20,8 +27,8 @@ over USB.
 2. **Connect your phone to the Pi's wifi.** On your
    phone, open wifi settings and connect to:
 
-   - **Network name:** `g90digi-AP`
-   - **Password:** `135g90xu`
+   - **Network name:** `g90digi`
+   - **Password:** `CHANGE_ME`
 
    Your phone will warn "no internet" — that's normal.
    The Pi is just a local server, not the internet.
@@ -30,10 +37,10 @@ over USB.
    browser, go to:
 
    - **Main panel:** `http://192.168.4.1/` or
-     `http://g90digi.local/`
+     `http://<your-hostname>.local/`
    - **App launcher:** same address, port 8090 — click
      "Open Shared Launcher" on the main panel, or go
-     to `http://g90digi.local:8090/` directly
+     to `http://<your-hostname>.local:8090/` directly
 
    You should see a dark-themed page with rows of
    buttons for the radio apps (FLrig, JS8Call, FLDigi,
@@ -88,7 +95,7 @@ Below the app rows:
 ## If you have problems
 
 - **Page won't load?** Make sure you're on the
-  `g90digi-AP` wifi, not your home wifi.
+  `g90digi` wifi, not your home wifi.
 - **App button does nothing?** Check the pill at the
   top. If it's red, the service is stopped; if it
   says "failed," there's a real problem (probably no
@@ -129,8 +136,8 @@ Below the app rows:
 ## Box details (for reference)
 
 - **Hostname:** `g90digi`
-- **AP SSID:** `g90digi-AP`
-- **AP password:** `135g90xu`
+- **AP SSID:** `g90digi`
+- **AP password:** `CHANGE_ME`
 - **AP IP:** `192.168.4.1`
 - **Web UIs:**
   - Wifi setup: port 80 (`http://192.168.4.1/`)

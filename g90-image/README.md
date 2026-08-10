@@ -96,21 +96,7 @@ g90 box.
 
 ### `config/`
 - `pat-config.json` — pat Winlink config (N0CALL stub)
-- `askpass-g90.sh` — g90 user password (6292), in plaintext
-  (this is a local-only Pi, the trade-off is OK)
-
-  **⚠️ 2026-07-20 — this PIN is now compromised.** The 4-digit
-  password `6292` was pasted in the @Mmsp907 ⇄ @CletusTbot
-  Telegram DM on 2026-07-20 and is in chat history. New g90
-  boxes flashed from this image inherit the same PIN, so
-  the leak multiplies with every flash. **Action for whoever
-  has root on the g90 / dev Pi:** (a) `sudo passwd pi` on
-  the g90 with a passphrase longer than 4 digits, (b) update
-  `~/.ssh/.g90-pass` on the dev Pi to match, (c) ideally
-  replace this file's contents with a fresh, per-box
-  password generated on first boot. **Structural fix:** ssh
-  keys. See `memory/g90-project.md` "Known footguns" →
-  "g90 ssh password leaked via Telegram."
+- `askpass-g90.sh` — g90 askpass wrapper (TEMPLATE — fill in real password at deploy time, NEVER commit a real password)
 - `reticulumhf-config.env` — ReticulumHF service config
 - `hostapd.conf` — wifi AP config (SSID, channel, etc.)
 - `start-novnc-session` — script that brings up Xvfb + openbox + x11vnc
@@ -126,20 +112,12 @@ of `sudo systemctl restart pat@$USER`.
 
 ## When the offline g90 comes online
 
-The wrappers `/tmp/ssh-g90digi-now.sh` and
-`/tmp/ssh-g90digi-tar.sh` (still pointed at the
-shipping g90) need to be re-pointed at the offline
-g90's IP. Then:
-1. Update the IP in those wrappers
-2. SSH in, follow the "First-time setup" steps above
-3. The Update button on the launcher's bottom row will
-   pull the latest code on demand.
-
+The dev Pi uses separate per-box askpass wrappers at `~/.local/bin/askpass-<boxname>.sh` that read from `~/.ssh/.<boxname>-pass`. **No real password is ever committed to this repo.** Group-specific credentials (passwords, SSIDs, ZT network IDs) belong in the `g90-fleet-config` repo (private, group-only), not here.
 ## Per-box naming convention (added 2026-08-08)
 
 > **Important for image maintainers:** the AP SSID and
-> hostname baked into this image default to **`g90digi`**
-> (AP: `g90digi-AP`, hostname: `g90digi`, mDNS:
+> The default hostname is `g90digi`. Operators should override it (and the matching AP SSID, ZT identity, etc.) via `bootstrap.sh` or pre-first-boot edits.
+> (AP: `g90digi`, hostname: `g90digi`, mDNS:
 > `g90digi.local`). These are the **defaults** baked into
 > the source files in this folder. When you flash this
 > image onto a different box, you should:
@@ -161,27 +139,11 @@ g90's IP. Then:
    sudo systemctl restart node-portal
    ```
 
-> **Note on g90digi vs g90f1r2:** historically this image
-> defaulted to `g90f1r2-AP` because the source image was
-> cloned from the g90f1r2 box. As of 2026-08-08, the
-> default has been changed to `g90digi-AP` to match the
-> currently-deployed box. **If you ever publish this
-> image publicly**, double-check that the SSID matches
-> your intended default — operators may not expect to
-> have to rename the AP on first boot.
-
-> **The two units (`g90digi` and `g90f1r2`) are
-> separate physical radios with separate image
-> deployments.** They share the same source image (this
-> folder) but each instance has its own hostname, AP
-> SSID, ZeroTier identity, and (currently)
-> ZeroTier-assigned IP. Don't assume they're the same
-> box just because the image is the same.
-
+> **Customizing the deploy defaults:** the hostname, AP SSID, and ZeroTier network ID baked into this image are **defaults**. Operators should override them via the `bootstrap.sh` script (or by editing the overlay files before first boot). Group-specific values are documented in the `g90-fleet-config` repo.
 ## Pi 4 historical
 
 The previous-generation Pi 4 overlay (BCM2711, 32-bit-friendly,
-`g90f1r2-AP` SSID) is preserved at `g90-image/pi4/` for reference
+`g90digi` SSID) is preserved at `g90-image/pi4/` for reference
 and as the lineage of how this project got here. **Do not edit
 it for new work** — this directory (`g90-image/`) is the canonical
 recipe for both Pi 4 and Pi 5 deployments via the dual-arch
@@ -191,10 +153,9 @@ capability verified on 2026-08-09 (one image, both targets).
 
 The two fleet boxes that consume this overlay are:
 
-- **`g90f1r2.local`** (ZT 10.59.42.236) — shipping, on ECG_Guest
+- **`g90f1r2.local`** (ZT <your-ZT-IP>) — shipping, on ECG_Guest
   wifi, last captured image in `/REMOTE/pi_images/pi5-g90digi-8-9-26.img.xz`
-- **`g90digi.local`** (ZT 10.59.42.237) — Pi 5 2GB replacement, the
-  reference "latest stable" box
+
 
 This overlay is the **canonical recipe** for both. Captured
 flashable images live in `/REMOTE/pi_images/` (NOT in this repo —
