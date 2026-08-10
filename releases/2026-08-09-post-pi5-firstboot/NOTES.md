@@ -19,6 +19,47 @@ xzcat pi5-g90digi-8-9-26.img.xz | sudo dd of=/dev/sdX bs=4M conv=fsync status=pr
 
 Replace `/dev/sdX` with your target (use `lsblk` to find it).
 
+
+
+## Download
+
+The `.img.xz` binary is **NOT** in github (1 GB is too large for git,
+and github Releases have a 2 GB cap that's come and gone over the
+years). The canonical copy lives on the dev Pi (nomadpi) at:
+
+```
+/media/pi/REMOTE/pi_images/pi5-g90digi-8-9-26.img.xz
+```
+
+MD5: `a20ead9a6ec7914c6c4d9f35052bd446`
+Size: 987 MB compressed (~5.9 GB pishrunk / 28.7 GB raw)
+
+### To fetch (laptop / another box on ZT / LAN)
+
+```bash
+# LAN mDNS
+scp pi@g90digi.local:/media/pi/REMOTE/pi_images/pi5-g90digi-8-9-26.img.xz .
+
+# LAN IP directly
+scp pi@192.168.1.179:/media/pi/REMOTE/pi_images/pi5-g90digi-8-9-26.img.xz .
+
+# ZeroTier IP (g90digi's ZT IP)
+scp pi@10.59.42.237:/media/pi/REMOTE/pi_images/pi5-g90digi-8-9-26.img.xz .
+```
+
+Or via the dev Pi (nomadpi) direct:
+
+```bash
+scp pi@nomadpi.local:/media/pi/REMOTE/pi_images/pi5-g90digi-8-9-26.img.xz .
+```
+
+After download, verify MD5:
+
+```bash
+md5sum pi5-g90digi-8-9-26.img.xz
+# expected: a20ead9a6ec7914c6c4d9f35052bd446
+```
+
 ## What's in the overlay
 
 See `g90-image/` (this repo) for the live overlay. The captured image

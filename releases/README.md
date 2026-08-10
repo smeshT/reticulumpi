@@ -5,6 +5,12 @@ g90 / sbitx overlay. The actual `.img.xz` binaries are attached as
 GitHub Release assets (https://github.com/smeshT/reticulumpi/releases)
 because they're ~1 GB each — too large for git.
 
+
+**Note:** image binaries (the `.img.xz` files) are NOT in this repo
+or in github Releases. They live on the dev Pi at
+`/media/pi/REMOTE/pi_images/` because 1 GB binaries don't belong in
+git. See each release's NOTES.md for download instructions.
+
 ## Index of releases
 
 - **[2026-08-09 — pi5-g90digi-8-9-26](./2026-08-09-post-pi5-firstboot)**
