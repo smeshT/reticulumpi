@@ -1,0 +1,16 @@
+# Exclude local backups and build artifacts from the image overlay repo.
+# Keep this list tight — only stuff that's local to a working copy, not
+# anything we actually want to ship with the image.
+
+# Backup files created during edits (the .bak-YYYYMMDD-HHMM pattern
+# used by the manual edit workflow on the g90 fleet).
+*.bak-*
+
+# QUICK-START.pdf and QUICK-START.html are generated from QUICK-START.md
+# (run pandoc / wkhtmltopdf to regenerate). Source of truth is the .md.
+QUICK-START.pdf
+QUICK-START.html
+
+# Python bytecode caches (never ship these in an image overlay).
+__pycache__/
+*.pyc

@@ -1,0 +1,243 @@
+<!doctype html>
+<html>
+<head>
+    <title>G90 Apps</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <style>
+    body {
+        font-family: Arial, sans-serif;
+        font-size: 16px;
+        margin-left: 20px;
+        margin-right: 20px;
+        margin-top: 2px;
+        margin-bottom: 2px;
+        line-height: 1.5;
+        padding-bottom: 50px;
+    }
+
+    button {
+        font-size: 16px;
+        padding: 12px 20px;
+        margin-top: 10px;
+        margin-bottom: 10px;
+        width: 100%;
+        max-width: 400px;
+    }
+    heading, h1, h2, h3, h4, h5 {
+        margin-bottom: 2px;
+        margin-top: 2px;
+    }
+
+    .app-row {
+        display: flex;
+        gap: 10px;
+        max-width: 400px;
+    }
+
+    .app-row form,
+    .app-row button {
+        flex: 1;
+    }
+
+    .app-row button,
+    .app-row form button {
+        width: 100%;
+    }
+
+    a {
+        text-decoration: none;
+    }
+
+    span {
+        display: block;
+        margin-bottom: 15px;
+    }
+    </style>
+</head>
+
+<body>
+
+<form
+    action="/open-shared-launcher"
+    method="post"
+    target="_blank"
+>
+    <button type="submit">Open Shared Launcher</button>
+    <span>Opens the g90 shared launcher (FLrig, JS8Call, FLDigi, WSJT-X, Pat Menu, etc) on port 8090.</span>
+</form>
+
+
+<h3>Reticulum Apps</h3>
+<div class="app-row">
+    <form
+        action="/open-meshchat"
+        method="post"
+        target="_blank"
+    >
+        <button type="submit">Open MeshChat</button>
+    </form>
+
+    <form
+        action="/restart-meshchat"
+        method="post"
+        target="_blank"
+    >
+        <button type="submit">Restart MeshChat</button>
+    </form>
+</div>
+
+<form
+    action="/open-reticulum-status"
+    method="post"
+    target="_blank"
+>
+    <button type="submit">Open ReticulumHF Status</button>
+</form>
+
+
+<hr>
+<h3>Digital Radio Apps</h3>
+
+<h5>FLdigi</h5>
+<div class="app-row">
+    <form 
+        action="/start-app" 
+        method="post" 
+        target="_blank"
+        onsubmit="setTimeout(function() {
+        window.location.href='/help/fldigi';
+    }, 500);"
+>
+        <input type="hidden" name="app" value="fldigi">
+        <button type="submit">Start FLdigi</button>
+    </form>
+        <button
+    type="button"
+    onclick="window.location.href='/help/fldigi'"
+>
+    FLdigi Help Page
+    </button>
+
+</div>
+
+<h5>JS8Call</h5>
+<div class="app-row">
+    <form 
+        action="/start-app" 
+        method="post" 
+        target="_blank"
+        onsubmit="setTimeout(function() {
+        window.location.href='/help/js8call';
+    }, 500);"
+>
+        <input type="hidden" name="app" value="js8call">
+        <button type="submit">Start JS8Call</button>
+    </form>
+        <button
+    type="button"
+    onclick="window.location.href='/help/js8call'"
+>
+    JS8Call Page
+    </button>
+
+</div>
+<h5>FT8 (WSJT-X)</h5>
+<div class="app-row">
+    <form 
+        action="/start-app" 
+        method="post" 
+        target="_blank"
+        onsubmit="setTimeout(function() {
+        window.location.href='/help/wsjtx';
+    }, 500);"
+>
+        <input type="hidden" name="app" value="wsjtx">
+        <button type="submit">Start FT8</button>
+    </form>
+        <button
+    type="button"
+    onclick="window.location.href='/help/flrig'"
+>
+    FT8 Page
+    </button>
+
+</div>
+<h5>FLrig</h5>
+<div class="app-row">
+    <form 
+        action="/start-app" 
+        method="post" 
+        target="_blank"
+        onsubmit="setTimeout(function() {
+        window.location.href='/help/flrig';
+    }, 500);"
+>
+        <input type="hidden" name="app" value="flrig">
+        <button type="submit">Start FLrig</button>
+    </form>
+    <button
+    type="button"
+    onclick="window.location.href='/help/flrig'"
+>
+    FLrig Help Page
+    </button>
+</div>
+
+<form action="/start-text-editor" 
+    method="post"
+    target="_blank"
+>
+    <button type="submit">Text Editor</button>
+</form>
+
+<hr>
+<form
+    action="/start-pavucontrol"
+    method="post"
+    target="_blank"
+>
+    <button type="submit">PavuControl</button>
+    <span>Adjust Audio Levels</span>
+</form>
+
+<form
+    action="/reset-audio-devices"
+    method="post"
+>
+    <button type="submit">Reset Audio Devices</button>
+    <span>Use this if you have audio issues with the audio devices.</span>
+</form>
+
+<hr>
+
+
+<button
+    type="button"
+    onclick="window.location.href='/'"
+>
+    Back to WiFi Setup
+</button>
+
+<br>
+<br>
+
+<div class="app-row">
+    <form action="/shutdown" method="post">
+        <button type="submit"
+                onclick="return confirm('Shutdown the Raspberry Pi?');">
+            Shutdown Pi
+        </button>
+    </form>
+
+        <form action="/reboot" method="post">
+        <button type="submit"
+                onclick="return confirm('Reboot the Raspberry Pi?');">
+            Reboot Pi
+        </button>
+    </form>
+
+</div>
+
+</body>
+</html>

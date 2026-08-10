@@ -1,0 +1,91 @@
+/* Letter, generous margins, designed to read on paper. */
+@page {
+  size: Letter;
+  margin: 0.6in 0.7in 0.7in 0.7in;
+}
+
+html {
+  font-size: 10.5pt;
+}
+
+body {
+  font-family: "Nunito Sans", "DejaVu Sans", "Liberation Sans", Helvetica, Arial, sans-serif;
+  color: #1a1a1a;
+  line-height: 1.4;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+h1 {
+  font-size: 19pt;
+  font-weight: 700;
+  margin: 0 0 0.05in 0;
+  letter-spacing: -0.01em;
+  border-bottom: 1.5pt solid #1a1a1a;
+  padding-bottom: 0.06in;
+}
+
+h1 + p em {
+  color: #555;
+  font-size: 9.5pt;
+  display: block;
+  margin-bottom: 0.12in;
+}
+
+h2 {
+  font-size: 12.5pt;
+  font-weight: 700;
+  margin: 0.18in 0 0.06in 0;
+  color: #1a1a1a;
+  letter-spacing: 0.005em;
+}
+
+p {
+  margin: 0 0 0.06in 0;
+  text-align: left;
+}
+
+ol, ul {
+  margin: 0 0 0.08in 0;
+  padding-left: 0.22in;
+}
+
+li {
+  margin-bottom: 0.04in;
+}
+
+strong {
+  font-weight: 700;
+  color: #000;
+}
+
+code {
+  font-family: "DejaVu Sans Mono", "Liberation Mono", Consolas, monospace;
+  font-size: 9.5pt;
+  background: #f3f3f3;
+  padding: 0.5pt 3pt;
+  border-radius: 2pt;
+}
+
+/* tighten the final "Box details" list - it's reference material */
+h2:last-of-type + ul {
+  columns: 1;
+}
+
+h2:last-of-type + ul li {
+  margin-bottom: 0.025in;
+  font-size: 10pt;
+}
+
+/* prevent awkward page breaks */
+h2 {
+  page-break-after: avoid;
+}
+
+h1, h2, h3 {
+  page-break-after: avoid;
+}
+
+ol, ul {
+  page-break-inside: avoid;
+}

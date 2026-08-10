@@ -1,0 +1,173 @@
+<!doctype html>
+<html>
+<head>
+    <title>G90 Interface</title>
+
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <style>
+
+    button {
+        font-size: 16px;
+        padding: 12px 16px;
+        margin-top: 10px;
+        margin-bottom: 10px;
+
+        width: 100%;
+        max-width: 400px;
+    }
+
+    input,
+    select {
+        font-size: 16px;
+        padding: 10px;
+        width: 100%;
+        max-width: 400px;
+        box-sizing: border-box;
+    }
+
+    pre {
+        font-size: 20px;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+    }
+
+    span {
+        display: block;
+        margin-top: 5px;
+    }
+
+    html, body {
+        min-height: 100%;
+        overflow-y: auto;
+    }
+
+    body {
+        font-family: Arial, sans-serif;
+        font-size: 16px;
+        margin: 20px;
+        line-height: 1.2;
+        padding-bottom: 50px;
+    }
+
+    .app-row {
+        display: flex;
+        gap: 10px;
+        max-width: 400px;
+    }
+
+    .app-row form {
+        flex: 1;
+    }
+
+    </style>
+
+</head>
+
+<body>
+
+<h1>G90 Wireless Setup</h1>
+
+<p>
+    Use this page to connect the node to a WiFi network, or skip WiFi 
+    and keep using the local ReticulumHF access point only.
+</p>
+
+<hr>
+
+<h2>Current WiFi Status</h2>
+
+<pre>{{ wifi_status }}</pre>
+
+{% if message %}
+
+<p>{{ message }}</p>
+
+{% endif %}
+
+<hr>
+
+{% if zt_ip or zt_network_id %}
+<h2>ZeroTier</h2>
+<pre>
+ZeroTier: {{ zt_ip if zt_ip else 'Not joined' }}
+{% if zt_network_id %}ZeroTier Network ID: {{ zt_network_id }}
+{% endif %}</pre>
+<span>
+    To access this box remotely, install ZeroTier on your device,
+    {% if zt_network_id %}join network <strong>{{ zt_network_id }}</strong>, {% endif %}
+    then visit the ZeroTier address above.
+</span>
+<hr>
+{% endif %}
+
+<form action="/scan" method="post">
+    <button type="submit">Scan WiFi</button>
+    <span>Find nearby wireless networks</span>
+</form>
+
+{% if networks %}
+
+<hr>
+
+<h2>Connect to WiFi</h2>
+
+<form action="/connect" method="post">
+
+    <label for="ssid">Network:</label>
+
+    <select name="ssid" id="ssid">
+        {% for network in networks %}
+            <option value="{{ network }}">{{ network }}</option>
+        {% endfor %}
+    </select>
+
+    <br><br>
+
+    <label for="password">Password:</label>
+    <input type="password" name="password" id="password">
+
+    <button type="button" onclick="togglePassword()">
+    Show Password
+    </button>
+
+    <br><br>
+
+    <button type="submit">Connect</button>
+    <span>Connect this node to the selected WiFi network</span>
+
+</form>
+
+{% endif %}
+
+<hr>
+
+<form action="/disconnect" method="post">
+    <button type="submit">Disconnect WiFi</button>
+    <span>
+        Disable WiFi connection and use the {{ ap_name }} access point instead.
+        Connect your device to the "{{ ap_name }}" wifi network, pw "135g90xu" and type "{{ hostname }}.local" in your browser.
+    </span>
+</form>
+
+{% if command_output %}
+
+<pre>{{ command_output }}</pre>
+
+{% endif %}
+
+<hr>
+
+<h2>Apps Launcher Page </h2>
+<form action="/open-shared-launcher" method="post" target="_blank">
+    <button type="submit">Open Shared Launcher</button>
+</form>
+
+<button type="button" onclick="window.location.href='/apps'">
+    Old Apps Page
+</button>
+
+<hr>
+
+</body>
+</html>
