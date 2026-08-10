@@ -32,11 +32,6 @@ to github (too big for git + no release infrastructure wired up).
 Build it from this repo + a stock ReticulumHF image — full
 instructions in [`g90-image/QUICK-START.md`](g90-image/QUICK-START.md).
 
-The **g90 group** (operators of the deployed fleet) has a pre-built
-image available over ZeroTier — see the private companion repo at
-[`smeshT/g90digi`](https://github.com/smeshT/g90digi) for the URL.
-Public readers can't reach it.
-
 ```bash
 # 1. Verify after download:
 md5sum pi5-g90digi-8-9-26.img.xz
