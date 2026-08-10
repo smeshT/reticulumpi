@@ -69,6 +69,8 @@ For build problems: open an issue at
 ## Architecture
 
 - **Pi 4 / Pi 5** (tested: Pi 4 Model B, Pi 5 2GB)
+- **Wifi dongle** Optional for connecting to existing wifi network. AP
+  network works with and without dongle. (Panda PAU3 tested)
 - **G90 / QYT KT-8900D** radio (will work with others but untested)
 - **Digirig Mobile** sound card (USB)
 - **FTDI cable** for CAT control (USB)
