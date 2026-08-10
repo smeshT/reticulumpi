@@ -1,8 +1,8 @@
 # reticulumpi
 
-Pi 4 / Pi 5 dual-arch Raspberry Pi image with Reticulum + FreeDV
+Pi 4 / Pi 5 dual-arch Raspberry Pi image with Reticulum + FreeDVtnc2
 digital modes, pre-configured for the g90 / QYT KT-8900D mobile
-radio fleet.
+radio (will work with others but untested).
 
 ## What's here
 
@@ -24,15 +24,6 @@ radio fleet.
   the dev Pi at `/media/pi/REMOTE/pi_images/` (1 GB is too large
   for git); see `releases/2026-08-09-post-pi5-firstboot/NOTES.md`
   for download instructions.
-
-## Companion repo
-
-Group-specific configuration (SSID, password, callsign,
-operating frequencies, ZeroTier network ID, deployed-box state)
-lives in the private companion repo
-[`smeshT/g90digi`](https://github.com/smeshT/g90digi). **This
-public repo never has group-specific values** — only the
-template, the overlay, and the build recipe.
 
 ## Quick start (for a fresh deploy)
 
