@@ -12,6 +12,7 @@ own node from the pi and connecting other interfaces to a central hub
 rather than from the EUD. Freedvtnc2 is able to be ran as a freestanding 
 keyboard chat app as well to allow direct testing of the hf transport 
 medium. 
+Built with much AI assistance; Openclaw and Minimax M3
 
 ## Build your own
 
