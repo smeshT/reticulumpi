@@ -90,6 +90,173 @@ The askpass file is in the workspace snapshot at
 (plaintext password is OK for this local-only Pi, per
 the user's 2026-07-07 standing rule).
 
+## Image policy and dual-arch compatibility (2026-08-09)
+
+**Key finding (2026-08-09):** The g90digi image is **dual-arch
+(Pi 4 + Pi 5, 64-bit only)**. One captured image can deploy
+to either architecture. We don't need separate per-arch images.
+
+### What's in the boot partition
+
+Both captured images
+(`g90digi-2026-08-08-post-pi5-firstboot.img.gz` and
+`pi5-g90digi-8-9-26.img.xz`) ship with:
+
+- `kernel_2712.img` — `6.6.51+rpt-rpi-2712` (Pi 5 only)
+- `kernel8.img` — `6.6.51+rpt-rpi-v8` (**universal aarch64**,
+  works on Pi 4 AND Pi 5)
+- `arm_64bit=1` in `config.txt` — forces 64-bit boot
+- Pi 4 DTBs (`bcm2711-rpi-4-b.dtb`, `bcm2711-rpi-cm4.dtb`,
+  etc.) — for Pi 4 boot
+- Pi 5 DTBs (`bcm2712-rpi-5-b.dtb`, `bcm2712-rpi-cm5-*.dtb`)
+- Pi 4 firmware (`start4*.elf`, `fixup4*.dat`)
+- Pi 5 firmware (`start*.elf`, `fixup*.dat`)
+
+### What's in the rootfs
+
+`/lib/modules/` contains **both**:
+
+- `6.6.51+rpt-rpi-2712/` (Pi 5 specific — for `kernel_2712.img`)
+- `6.6.51+rpt-rpi-v8/` (universal aarch64 — for `kernel8.img`,
+  used by Pi 4 boot)
+
+### Pi 4 boot path
+
+1. Bootloader sees `arm_64bit=1` → loads `kernel8.img`
+2. `kernel8.img` is `6.6.51+rpt-rpi-v8` (universal aarch64)
+3. Auto-detects Pi 4 SoC → loads `bcm2711-rpi-4-b.dtb`
+4. Kernel mounts rootfs, loads modules from
+   `/lib/modules/6.6.51+rpt-rpi-v8/`
+5. Pi 4 boots successfully in 64-bit mode
+
+### Pi 5 boot path
+
+1. Bootloader sees `arm_64bit=1` → loads `kernel8.img`
+   (preferred over `kernel_2712.img`)
+2. `kernel8.img` is `6.6.51+rpt-rpi-v8` (universal)
+3. Auto-detects Pi 5 SoC → loads `bcm2712-rpi-5-b.dtb`
+4. Kernel mounts rootfs, loads modules from
+   `/lib/modules/6.6.51+rpt-rpi-v8/`
+5. Pi 5 boots successfully in 64-bit mode
+
+**Note:** the Pi 5 *can* also boot `kernel_2712.img` (Pi 5
+specific) which loads modules from `6.6.51+rpt-rpi-2712/`,
+but the bootloader prefers `kernel8.img` when
+`arm_64bit=1` is set.
+
+### Caveats when booting a Pi 4
+
+- Runs 64-bit only (not 32-bit). Fine for g90digi (already
+  aarch64).
+- ZT identity, SSH host keys, hostname are baked in from
+  the source Pi. For a **fresh** Pi 4 box (not g90digi),
+  first-boot regen needed:
+  ```bash
+  sudo rm /etc/ssh/ssh_host_*
+  sudo ssh-keygen -A
+  sudo systemctl restart ssh
+  # For ZT identity (if you want a new node):
+  sudo systemctl stop zerotier-one
+  sudo rm /var/lib/zerotier-one/identity.*
+  sudo systemctl start zerotier-one
+  # Then re-join the network:
+  sudo zerotier-cli join 3b19b3a71665c6c2
+  ```
+- For a different hostname: edit `/etc/hostname` and
+  `/etc/hosts` before first boot (or `hostnamectl set-hostname`
+  after).
+
+### Image policy (revised 2026-08-09)
+
+Before this finding: "we need separate Pi 4 and Pi 5 images."
+
+After this finding: **one image, two targets.** The
+dual-arch image (Pi 4 + Pi 5 in 64-bit mode) is sufficient
+for both fleet boxes.
+
+**Concretely:**
+
+- **One canonical image** at `/REMOTE/pi_images/`,
+  named `g90digi-<date>-<label>.img.xz`
+- **Source recipe in git**: `g90-image-Pi5.git` (Pi 5
+  overlay) + ReticulumHF base + g90-launcher.git
+  (Flask + systemd). Both Pi 4 and Pi 5 deployments
+  pull from the same recipe.
+- **Rebuild on demand** when needed (~30 min: dd +
+  pishrink + xz -T0 -6). Don't preemptively rebuild.
+- **Pi 4 historical** stays in `g90-launcher.git/g90-image/`.
+  We don't maintain a separate Pi 4 fork unless active
+  Pi 4 work needs it.
+
+### Image backup policy (`/REMOTE/pi_images/`)
+
+Mounted from `/dev/sda1` → `/media/pi/REMOTE/`. Two tiers:
+
+- **Latest-working** — `g90digi-<YYYY-MM-DD>-<label>.img.xz`.
+  The one you'd flash today and have a working box.
+- **Dev BUs** — `-WIP-<state>` or `-unknown-config` in
+  label. Same dir. Opportunistic snapshots during dev;
+  never confused with latest-working.
+- **Sidecar `.manifest`** per backup: hostname, source
+  commit, date, label, MD5, notes.
+- **USB handoff pattern** for getting large images onto
+  this Pi without ssh'ing to the laptop: dd on laptop →
+  plug USB drive into nomadpi → cp locally → MD5-verify.
+
+### Image shrink pipeline (pishrink + xz)
+
+The recipe for producing a small downloadable image:
+
+```bash
+# 1. Capture (laptop dd's the live USB drive):
+dd if=/dev/sda of=~/work/<radio>-<date>.img bs=4M conv=fsync status=progress
+# 2. Copy to dev Pi:
+scp ~/work/<radio>-<date>.img.gz pi@nomadpi:/media/pi/REMOTE/pi_images/
+# 3. Shrink + compress on dev Pi:
+sudo pishrink -Z /media/pi/REMOTE/pi_images/<radio>-<date>.img
+# 4. Verify:
+xz -t /media/pi/REMOTE/pi_images/<radio>-<date>.img.xz
+md5sum /media/pi/REMOTE/pi_images/<radio>-<date>.img.xz
+```
+
+**pishrink does:**
+- `e2fsck -f` (fix live-dd inconsistencies)
+- `resize2fs -M` (shrink rootfs to minimum)
+- `parted` resize + truncate (image = used space only)
+- `xz -9` (compress; `xz -T0 -6` for ~3x faster with ~10%
+  larger output)
+
+**Typical sizes:**
+- 28 GB raw disk → 5-6 GB after pishrink → 1-2 GB after xz
+
+### Lessons learned on image building (2026-08-09)
+
+- **`zerofree` on a mounted rw filesystem is required before
+  dd'ing the source.** pishrink's resize2fs -M still works
+  on a live-captured image (e2fsck -f repairs journal),
+  but the image compresses better if the source was
+  zero-filled first. We skipped zerofree in our last
+  capture (it complained about mounted rw); pishrink
+  handled it but the .img.xz is ~25% larger than it
+  would be otherwise.
+- **`xz -9` (single-threaded) takes ~2-3 hours for 6 GB
+  on a 4-core Pi.** Use `xz -T0 -6` (parallel, level 6)
+  instead — ~25 min for 6 GB, output is ~5% larger.
+- **Pishrink without `-a` (parallel mode) is single-threaded.**
+  On a 4-core box, pass `-a` for parallel gzip/xz, or
+  set `PISHRINK_XZ="-T0 -6"` env var.
+- **Detach long-running exec calls.** A 30-min `dd` got
+  killed by an OpenClaw tool policy change. Always wrap
+  long-running commands with `setsid + nohup + &` and
+  detach from the exec shell.
+- **The Pi 5's USB-C power negotiation can fail with
+  some USB drives during sustained writes.** Two
+  different USB drives failing Pi Imager's "error
+  reading from storage" in two days = symptom, not
+  cause. Workarounds: (a) write via `dd` from the
+  laptop, (b) use a powered USB hub, (c) prefer USB
+  2.0 black ports over USB 3.0 blue ports.
+
 ## The shared launcher (port 8090)
 
 A Flask app we wrote from scratch this session, modeled
