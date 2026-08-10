@@ -37,22 +37,23 @@ Size: 987 MB compressed (~5.9 GB pishrunk / 28.7 GB raw)
 
 ### To fetch (laptop / another box on ZT / LAN)
 
+If you happen to be on the g90 group's LAN or ZeroTier, the
+canonical copy is on the g90digi box. Ask the group operator
+for the current IP — it changes between boxes and over time.
+
 ```bash
-# LAN mDNS
+# LAN mDNS (works if you're on the same mDNS domain)
 scp pi@g90digi.local:/media/pi/REMOTE/pi_images/pi5-g90digi-8-9-26.img.xz .
 
-# LAN IP directly
-scp pi@192.168.1.179:/media/pi/REMOTE/pi_images/pi5-g90digi-8-9-26.img.xz .
+# LAN IP directly (g90digi's current LAN IP)
+scp pi@<box-lan-ip>:/media/pi/REMOTE/pi_images/pi5-g90digi-8-9-26.img.xz .
 
-# ZeroTier IP (g90digi's ZT IP)
-scp pi@10.59.42.237:/media/pi/REMOTE/pi_images/pi5-g90digi-8-9-26.img.xz .
+# ZeroTier IP (g90digi's current ZT IP)
+scp pi@<box-zt-ip>:/media/pi/REMOTE/pi_images/pi5-g90digi-8-9-26.img.xz .
 ```
 
-Or via the dev Pi (nomadpi) direct:
-
-```bash
-scp pi@nomadpi.local:/media/pi/REMOTE/pi_images/pi5-g90digi-8-9-26.img.xz .
-```
+Public readers: don't have access. Build from source instead
+(see [`g90-image/QUICK-START.md`](../../g90-image/QUICK-START.md)).
 
 **HTTP download (group-only, 2026-08-10+):** the g90 group has
 a pre-built image available over ZeroTier. The URL is published
