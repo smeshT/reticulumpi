@@ -87,6 +87,20 @@
 
 <hr>
 
+{% if zt_ip or zt_network_id %}
+<h2>ZeroTier</h2>
+<pre>
+ZeroTier: {{ zt_ip if zt_ip else 'Not joined' }}
+{% if zt_network_id %}ZeroTier Network ID: {{ zt_network_id }}
+{% endif %}</pre>
+<span>
+    To access this box remotely, install ZeroTier on your device,
+    {% if zt_network_id %}join network <strong>{{ zt_network_id }}</strong>, {% endif %}
+    then visit the ZeroTier address above.
+</span>
+<hr>
+{% endif %}
+
 <form action="/scan" method="post">
     <button type="submit">Scan WiFi</button>
     <span>Find nearby wireless networks</span>
@@ -131,8 +145,8 @@
 <form action="/disconnect" method="post">
     <button type="submit">Disconnect WiFi</button>
     <span>
-        Disable WiFi connection and use the g90digi access point instead. 
-        Connect your device to the "g90f1r2-AP" wifi network, pw "135g90xu" and type "g90f1r2.local" in your browser.
+        Disable WiFi connection and use the {{ ap_name }} access point instead.
+        Connect your device to the "{{ ap_name }}" wifi network, pw "135g90xu" and type "{{ hostname }}.local" in your browser.
     </span>
 </form>
 

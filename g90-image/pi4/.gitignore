@@ -1,0 +1,6 @@
+# Pi 4 historical — much of this is preserved from the pre-cleanup era.
+# Exclude local backups and build artifacts.
+
+*.bak-*
+__pycache__/
+*.pyc

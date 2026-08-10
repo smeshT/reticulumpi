@@ -128,3 +128,9 @@ memory/
 # g90-image-pi5/ at the top of this repo (2026-08-10). The old
 # work tree will be deleted in the follow-up commit.
 g90-image-Pi5/
+
+# Pi 4 historical — local backups and pycache
+g90-image/pi4/**/*.bak-*
+g90-image/pi4/**/__pycache__/
+g90-image/pi4/**/*.pyc
+g90-image/pi4/node-portal/templates
