@@ -14,7 +14,7 @@ stock ReticulumHF base image.
   gives you headroom for logs and mesh storage).
 - **Xiegu G90 or QYT KT-8900D** radio (other radios may work
   but are untested)
-- **Radio Inerface** DigiRig or Xiegu CE/DE-19
+- **Radio Interface** DigiRig or Xiegu CE/DE-19
 - **FTDI USB-serial cable** (for CAT control of the G90)
 - **A laptop or desktop with Raspberry Pi Imager installed**
 
