@@ -14,7 +14,7 @@ stock ReticulumHF base image.
   gives you headroom for logs and mesh storage).
 - **Xiegu G90 or QYT KT-8900D** radio (other radios may work
   but are untested)
-- **Digirig Mobile** sound card (USB)
+- **Radio Inerface** DigiRig or Xiegu CE/DE-19
 - **FTDI USB-serial cable** (for CAT control of the G90)
 - **A laptop or desktop with Raspberry Pi Imager installed**
 
@@ -38,9 +38,7 @@ package installation and `apt update`.
 ```bash
 # Download the latest ReticulumHF base image ZIP from
 # https://lightfightermanifesto.org/tools/reticulumhf/
-# (Pick the Pi 4 / Pi 5 dual-arch build if available;
-# Pi 5 only works in 64-bit mode.)
-
+# 
 # Flash with Raspberry Pi Imager:
 #   1. Open Pi Imager
 #   2. Choose OS → "Use custom" → select the ZIP
