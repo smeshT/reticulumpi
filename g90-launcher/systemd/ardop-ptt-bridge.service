@@ -28,5 +28,11 @@ ProtectSystem=full
 # makes /tmp read-only for the service, which breaks StandardOutput=append.
 PrivateTmp=false
 
-[Install]
-WantedBy=multi-user.target
+# NOTE: no [Install] section on purpose. The bridge must NEVER auto-start.
+# Auto-start means a flashed SD card boots into a stack that grabs the
+# FTDI cable and the audio device with no operator present — exactly the
+# thing that burned up g90digi's USB-C cable in 2026-08. The bridge is
+# enabled only by an explicit click on the launcher's Start button, which
+# runs `sudo -n systemctl enable --now ardop-ptt-bridge.service`. The
+# install.sh script that drops this unit on a fresh box does `disable`
+# after copy, not `enable`, so the unit is installed but inert.

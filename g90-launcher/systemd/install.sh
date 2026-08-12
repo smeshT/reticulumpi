@@ -6,20 +6,24 @@
 # What this does:
 #   1. Copy ardop-ptt-bridge.service and piardopc.service to /etc/systemd/system/
 #   2. systemctl daemon-reload
-#   3. systemctl enable ardop-ptt-bridge.service piardopc.service
-#   4. systemctl disable rigctld.service  (bridge replaces it)
-#   5. systemctl restart ardop-ptt-bridge.service
-#   6. systemctl restart piardopc.service
+#   3. systemctl disable --now ardop-ptt-bridge.service piardopc.service
+#      (units are installed INERT — no auto-start. The launcher's Start
+#      button is the only path to enable + start them. This is deliberate:
+#      see the comment in each unit file.)
+#   4. Disable obsolete rigctld.service if present (bridge replaces it)
 #
 # This script assumes:
 #   - /home/pi/ardop/ardop_ptt_bridge.py exists (the unified bridge)
 #   - /home/pi/ardop/piardopc exists (the ARDOP modem binary)
 #   - pat-http.service is already installed (separate)
 #
-# After install, the box will boot into a working ARDOP/winlink stack:
-#   bridge owns FTDI cable + serves :8517/:8518/:4532
-#   piardopc runs audio-only on :8515/:8516 (no -p, bridge owns FTDI)
-#   pat-http runs the HTTP UI on :5000
+# The unit templates in this directory deliberately have NO [Install]
+# section — systemd can't `enable` a unit without one, so even if a
+# fresh image's first-boot hook ran `systemctl enable ...` it would
+# fail with "unit has no install configuration". That makes "inert
+# install" a property of the unit file itself, not a step this script
+# could forget. The launcher is the only thing that re-enables them,
+# and only when the operator clicks Start.
 #
 # VOX on the G90 must be enabled for piardopc-internal commands
 # (two-tone test, beacon) to key the radio.
@@ -43,25 +47,26 @@ install -m 0755 "$SCRIPT_DIR/../scripts/g90-flrig" /usr/local/bin/g90-flrig
 echo "==> Reloading systemd"
 systemctl daemon-reload
 
-echo "==> Enabling + starting bridge and piardopc"
-systemctl enable ardop-ptt-bridge.service
-systemctl enable piardopc.service
-systemctl restart ardop-ptt-bridge.service
-sleep 1
-systemctl restart piardopc.service
+# Units have no [Install] section, so they're already inert. No
+# `enable`, no auto-start. The launcher Start button calls
+# `sudo -n systemctl enable --now <unit>` to bring them up.
+echo "==> Units installed inert (no auto-start, no enable)"
+systemctl is-enabled ardop-ptt-bridge.service piardopc.service 2>&1 || true
 
 # Disable obsolete rigctld.service if it's installed — bridge replaces it.
-if systemctl list-unit-files rigctld.service >/dev/null 2>&1; then
+# rigctld stays enabled on digipat builds where the bridge isn't installed;
+# this only fires when both unit files coexist.
+if systemctl list-unit-files rigctld.service >/dev/null 2>&1 \
+   && systemctl list-unit-files ardop-ptt-bridge.service >/dev/null 2>&1; then
     echo "==> Disabling obsolete rigctld.service (bridge replaces it)"
     systemctl disable --now rigctld.service || true
 fi
 
-echo "==> Done. Status:"
-systemctl --no-pager status ardop-ptt-bridge.service | head -10
+echo "==> Done. Unit file state:"
+for u in ardop-ptt-bridge.service piardopc.service; do
+    printf "  %-32s enabled=%s active=%s\n" "$u" \
+        "$(systemctl is-enabled $u 2>&1)" \
+        "$(systemctl is-active $u 2>&1)"
+done
 echo "---"
-systemctl --no-pager status piardopc.service | head -10
-echo "---"
-echo "==> Listeners:"
-ss -lntp | grep -E ':8515|:8516|:8517|:8518|:4532|:5000' || echo "(no listeners yet — check journal)"
-echo "---"
-echo "REMINDER: enable VOX on the G90 for two-tone test/beacon to key the radio."
+echo "REMINDER: enable VOX on the G90 before clicking Start on the launcher."

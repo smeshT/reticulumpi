@@ -26,5 +26,11 @@ ProtectSystem=full
 ProtectHome=read-only
 PrivateTmp=false
 
-[Install]
-WantedBy=multi-user.target
+# NOTE: no [Install] section on purpose. piardopc must NEVER auto-start.
+# Auto-start means a flashed SD card boots into the ARDOP modem grabbing
+# the USB CODEC audio device with no operator present. piardopc is enabled
+# only by an explicit click on the launcher's Start button, which runs
+# `sudo -n systemctl enable --now piardopc.service` after confirming the
+# bridge owns the FTDI cable. The install.sh script that drops this unit
+# on a fresh box does `disable` after copy, not `enable`, so the unit is
+# installed but inert.
