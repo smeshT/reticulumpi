@@ -1,16 +1,29 @@
 #!/bin/bash
-# freedv_tui.sh — open an lxterminal running freedvtnc2 --cli in
+# freedv_tui.sh — open an xterm running freedvtnc2 --cli in
 # the g90 box's Xvfb :1 desktop (visible in the noVNC tab).
 #
 # This is the g90's analog of the sbitx box's ttyd-freedvtnc2
 # sidecar, but simpler: no ttyd, no systemd unit, no tmux. The
-# terminal is a real lxterminal on the existing desktop, and the
-# user gets the full TNC terminal experience (mode, signal,
-# connections, etc.) without any wrapper plumbing.
+# terminal is a real xterm on the existing desktop, and the user
+# gets the full TNC terminal experience (mode, signal, connections,
+# etc.) without any wrapper plumbing.
 #
-# Idempotent: if an lxterminal whose title is "freedvtnc2" is
-# already open, this script is a no-op (matches on the title
-# reliably, not on pgrep -f which self-matches the wrapper itself).
+# History: the original script used `lxterminal`, which ships with
+# LXDE and is NOT installed on the ReticulumHF base image (which
+# is LXDE-less — just Xvfb + openbox + x11vnc). With lxterminal
+# missing, every Start click silently failed (the script's
+# `lxterminal ... &` would exit 127, no terminal opened, no
+# feedback). Switched to `xterm` because:
+#   - xterm is in apt and tiny (~1 MB).
+#   - DejaVu Sans Mono (the TrueType font we use) is already on
+#     the image via fonts-dejavu-core, no extra packages needed.
+#   - xterm doesn't need DBus (lxterminal does), so the XDG_RUNTIME_DIR
+#     export isn't strictly required for it, but we keep it for
+#     any future swap to a DBus-aware terminal.
+#
+# Idempotent: if an xterm whose title is "freedvtnc2" is already
+# open, this script is a no-op (matches on the title reliably, not
+# on pgrep -f which self-matches the wrapper itself).
 #
 # No-radio handling: if the audio device configured for freedvtnc2
 # isn't present (the G90 isn't plugged in, the audio card moved,
@@ -24,25 +37,46 @@
 # /etc/reticulumhf/config.env, so the audio device index and
 # other settings stay in sync with the daemon. Strips --no-cli
 # (we want the TUI, not the headless daemon mode) and runs the
-# resulting command inside the lxterminal.
+# resulting command inside the xterm.
 
 set -e
 
 # The launcher's systemd unit (g90-shared-launcher.service) inherits
 # the systemd default environment, which does NOT include DISPLAY.
-# We need DISPLAY=:1 to attach the lxterminal to the existing
-# Xvfb :1 desktop. We also need XDG_RUNTIME_DIR for the lxterminal
-# to find its DBus session. The other launcher scripts (e.g.
-# start_patmenu.sh) set the same vars the same way.
+# We need DISPLAY=:1 to attach the xterm to the existing Xvfb :1
+# desktop. We also set XDG_RUNTIME_DIR for any tool that needs it.
 export DISPLAY=:1
 export XDG_RUNTIME_DIR=/run/user/$(id -u)
+
+# Terminal selection. We use xterm with a TrueType font because
+# the ReticulumHF base image doesn't ship xfonts-base (the bitmap
+# fonts xterm defaults to). DejaVu Sans Mono IS shipped (via
+# fonts-dejavu-core), and works without any extra package. The
+# `-fa` flag tells xterm to use fontconfig; `-fs 10` sets a
+# readable size; `-T` sets the WM window title (used by the
+# idempotency check below).
+TERM_BIN=xterm
+TERM_TITLE_FLAG=-T
+TERM_FONT_FLAGS=(-fa "DejaVu Sans Mono" -fs 10)
+
+if ! command -v "$TERM_BIN" >/dev/null 2>&1; then
+    # Terminal client is genuinely missing. Surface the error in
+    # the launcher log instead of silently failing (which is what
+    # the original lxterminal-based version did). The launcher
+    # captures stdout of run_script()'s subprocess and the next
+    # page reload will show the error in journalctl.
+    echo "freedv_tui: $TERM_BIN not found on PATH. Install with:" >&2
+    echo "  sudo apt-get install -y xterm" >&2
+    exit 127
+fi
 
 # Read FREEDVTNC2_CMD from the g90 image's config file. We only
 # need the value, not the file's other lines.
 CONFIG_ENV=/etc/reticulumhf/config.env
 if [ ! -r "$CONFIG_ENV" ]; then
     # Print the error in a terminal so the user can see it.
-    lxterminal --title="freedvtnc2 (no config)" \
+    "$TERM_BIN" "$TERM_TITLE_FLAG" "freedvtnc2 (no config)" \
+        "${TERM_FONT_FLAGS[@]}" \
         -e bash -c "echo 'ERROR: cannot read $CONFIG_ENV' >&2; \
                      echo 'The g90 setup wizard must run before this works.' >&2; \
                      read -p 'Press Enter to close...' _" \
@@ -53,28 +87,33 @@ fi
 source "$CONFIG_ENV"
 
 if [ -z "${FREEDVTNC2_CMD:-}" ]; then
-    lxterminal --title="freedvtnc2 (no FREEDVTNC2_CMD)" \
+    "$TERM_BIN" "$TERM_TITLE_FLAG" "freedvtnc2 (no FREEDVTNC2_CMD)" \
+        "${TERM_FONT_FLAGS[@]}" \
         -e bash -c "echo 'ERROR: FREEDVTNC2_CMD is not set in $CONFIG_ENV' >&2; \
                      read -p 'Press Enter to close...' _" \
         >/dev/null 2>&1 &
     exit 1
 fi
 
-# Idempotency: if our lxterminal is already open, focus it (best
-# effort) and exit. We match on --title=freedvtnc2 exactly so we
-# don't conflict with any other lxterminal the user might have
-# open. We use wmctrl if available to raise the existing window;
-# if not, we just exit.
+# Idempotency: if our xterm is already open, focus it (best
+# effort) and exit. We match on the title exactly so we don't
+# conflict with any other xterm the user might have open.
 #
-# Implementation note: `pgrep -x lxterminal` returns 0 if ANY
-# lxterminal is running, even ones we don't own. We need a
-# positive test for "an lxterminal with our title is running"
-# that returns 0 in that case and non-zero otherwise. We do this
-# by checking each lxterminal's /proc/$pid/cmdline explicitly,
-# returning 0 on the first match and skipping the rest.
+# Implementation note: `pgrep -x xterm` returns 0 if ANY xterm is
+# running, even ones we don't own. We need a positive test for
+# "an xterm with our title is running" that returns 0 in that
+# case and non-zero otherwise. We do this by checking each
+# xterm's /proc/$pid/cmdline explicitly, returning 0 on the first
+# match and skipping the rest.
 ALREADY_RUNNING=0
-for p in $(pgrep -x lxterminal 2>/dev/null); do
-    if cat /proc/$p/cmdline 2>/dev/null | tr '\0' ' ' | grep -q -- '--title=freedvtnc2'; then
+for p in $(pgrep -x xterm 2>/dev/null); do
+    # xterm sets the WM window title via -T <title>, which appears
+    # in /proc/$pid/cmdline as a separate argument. We check the
+    # cmdline contains both "-T" and "freedvtnc2" as adjacent tokens
+    # so we don't false-match on a title that happens to contain
+    # "freedvtnc2" inside a longer string.
+    if cat /proc/$p/cmdline 2>/dev/null | tr '\0' '\n' | grep -qFx -- "-T" \
+       && cat /proc/$p/cmdline 2>/dev/null | tr '\0' '\n' | grep -qFx -- "freedvtnc2"; then
         ALREADY_RUNNING=1
         break
     fi
@@ -121,7 +160,8 @@ if [ "$MISSING" = 1 ]; then
     # for Enter so the user can read it before the window
     # closes. This is the non-fragile failure mode: visible,
     # informative, no flashing-and-vanishing.
-    lxterminal --title="freedvtnc2 (no audio)" \
+    "$TERM_BIN" "$TERM_TITLE_FLAG" "freedvtnc2 (no audio)" \
+        "${TERM_FONT_FLAGS[@]}" \
         -e bash -c "echo '=== FreeDV TUI: audio device not found ==='; \
                      echo; \
                      echo 'Configured audio devices (from $CONFIG_ENV):'; \
@@ -148,7 +188,8 @@ fi
 # Audio device is present. Open the terminal running the CLI.
 # We do this last so the existing-window check above sees the
 # previous session (if any) and refuses to spawn a duplicate.
-lxterminal --title="freedvtnc2" \
+"$TERM_BIN" "$TERM_TITLE_FLAG" "freedvtnc2" \
+    "${TERM_FONT_FLAGS[@]}" \
     -e bash -c "echo '=== FreeDV TUI starting ==='; \
                  echo; \
                  echo 'Command: $CLI_CMD'; \
