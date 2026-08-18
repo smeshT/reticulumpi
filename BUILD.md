@@ -97,7 +97,8 @@ sudo apt install -y \
     flrig hamlib pat \
     direwolf \
     avahi-daemon avahi-utils \
-    zerotier-one
+    zerotier-one \
+    xterm pulseaudio pavucontrol
 
 # pipx (for freedvtnc2 and other Python tools)
 sudo apt install -y pipx
@@ -122,6 +123,19 @@ mode). Newer Pi 5 builds use `pat` directly with rigctld for
 PTT — no piardopc needed. If you want digipi's ARDOP stack,
 build piardopc from source on the Pi 5 or use the cross-compile
 recipe in `g90-launcher/systemd/install.sh` notes.
+
+**Note on xterm / pulseaudio / pavucontrol:** ReticulumHF's
+base image is LXDE-free (just `Xvfb + openbox + x11vnc`); it
+ships the PulseAudio user config (`~/.config/pulse/`,
+`~/.config/pavucontrol.ini`) but **not** the packages. Without
+`xterm`, the FreeDV TUI button does nothing (verified 2026-08-17).
+Without `pulseaudio`, the launcher audio rows fall back to
+direct ALSA, the `g90-waterfall.service` `After=pulseaudio.service`
+ordering silently degrades, and `pavucontrol` shows no sinks.
+Without `pavucontrol`, the Start Pavucontrol row errors. The
+apt command above includes all three — see also
+`g90-image/IMAGE-PACKAGES.md` for the canonical list with the
+"why" for each.
 
 ## Step 4 — Apply the overlay
 
