@@ -95,6 +95,7 @@ sudo apt install -y \
     git curl wget xz-utils \
     python3 python3-pip python3-venv \
     flrig hamlib pat \
+    fldigi js8call wsjtx \
     direwolf \
     avahi-daemon avahi-utils \
     zerotier-one \
@@ -136,6 +137,20 @@ Without `pavucontrol`, the Start Pavucontrol row errors. The
 apt command above includes all three — see also
 `g90-image/IMAGE-PACKAGES.md` for the canonical list with the
 "why" for each.
+
+**Note on fldigi / js8call / wsjtx:** The launcher's audio
+rows (FLrig, FLDigi, JS8Call, WSJT-X) each call into a
+`start_<app>.sh` wrapper that spawns the binary directly
+under `DISPLAY=:1`. Without `fldigi` the FLDigi Start button
+errors with "command not found" — verified missing on the
+2026-08-09 Pi 5 capture (`memory/2026-08-09.md` around line
+559-588, "pavucontrol not starting" postmortem), which noted
+"flrig/js8call/wsjtx [were] installed but fldigi was not."
+`js8call` and `wsjtx` ARE in Debian bookworm arm64 (verified
+on the same capture: `js8call 2.2.0+ds-5`, `wsjtx 2.6.1+repack-1`),
+so they're safe to apt-install. Bake all four digimode apps
+into the image so the next operator doesn't hit the same
+"missing package" trap.
 
 ## Step 4 — Apply the overlay
 

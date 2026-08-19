@@ -20,6 +20,9 @@
 | `xterm` | Terminal client for the FreeDV TUI on the noVNC desktop. `lxterminal` is NOT installed on the ReticulumHF base image (it ships LXDE-free: just Xvfb + openbox + x11vnc). Switched from `lxterminal` → `xterm` on 2026-08-17 after the Start button silently failed because `lxterminal` was missing. Verified working on g90digi (Pi 5, ReticulumHF base, 2026-08-17 18:14 MDT). | 2026-08-17 |
 | `pulseaudio` | Sound server backing the launcher audio apps (FLrig, fldigi, JS8Call, WSJT-X, FreeDV) and the `Reset Audio Devices` button. ReticulumHF ships `pavucontrol` and `~/.config/pulse/` config (verified 2026-08-09 capture on g90digi), but **the `pulseaudio` daemon package itself is NOT installed** — `pulseaudio.service` is referenced by `g90-waterfall.service` (`After=network-online.target pulseaudio.service`), and several launcher scripts (e.g. `start_pavucontrol.sh`) assume the server is running. Without it, apps fall back to direct ALSA only, pavucontrol shows no sinks, and the waterfall diagnostic tool's `After=` ordering silently degrades. Installed as part of the overlay recipe 2026-08-18. | 2026-08-18 |
 | `pavucontrol` | GTK mixer that the launcher's `Start Pavucontrol` row spawns in the noVNC tab. ReticulumHF base ships `~/.config/pavucontrol.ini` (so it was clearly meant to run), but the `pavucontrol` package itself was missing on the 2026-08-09 Pi 5 capture and had to be installed manually. Listed as a required overlay package 2026-08-18 alongside `pulseaudio` because the launcher's audio rows assume both. | 2026-08-18 |
+| `fldigi` | The `fldigi` binary that the launcher's FLDigi row spawns. ReticulumHF ships `~/.fldigi/fldigi_def.xml` and `fldigi.prefs` (per-user config, see 2026-08-09 capture in `memory/2026-08-09.md` around line 559-588), but **the `fldigi` package itself was missing** on that capture. Same "config-but-no-package" trap as pavucontrol. Without it, the FLDigi Start button errors with "command not found." Installed as part of the overlay recipe 2026-08-18. | 2026-08-18 |
+| `js8call` | The `js8call` binary that the launcher's JS8Call row spawns. NOT in ReticulumHF base, but **IS in Debian bookworm arm64** (`js8call 2.2.0+ds-5`, verified on the 2026-08-09 capture). Bake into the recipe so the next operator doesn't have to apt-install it manually after the launcher's Start button errors. | 2026-08-18 |
+| `wsjtx` | The `wsjtx` binary that the launcher's WSJT-X row spawns. Same story as `js8call`: NOT in ReticulumHF base, **IS in Debian bookworm arm64** (`wsjtx 2.6.1+repack-1`, verified 2026-08-09). Bake into the recipe. | 2026-08-18 |
 
 ## Already on the base image (don't reinstall)
 
@@ -38,11 +41,33 @@ re-installing them is harmless but wastes bandwidth:
 - `hostapd`, `dnsmasq` (the g90digi AP)
 - `~/.config/pavucontrol.ini` and `~/.config/pulse/` (per-user config the setup wizard writes, but **the server package itself is not** — see required packages above)
 
+## Digimode apps (apt) — also required
+
+These are the audio-side apps the launcher's rows spawn. Not
+in ReticulumHF base; must be apt-installed after first boot.
+ReticulumHF **does** ship the per-user config
+(`~/.flrig/Xiegu-G90.prefs`, `~/.fldigi/fldigi_def.xml`,
+`~/.config/JS8Call.ini`, `~/.config/WSJT-X.ini`,
+`~/.config/pat/config.json`), so the apps were clearly
+meant to run on this image — but the binaries themselves
+are not on the base. Same "config-but-no-package" trap as
+`pavucontrol` / `pulseaudio`.
+
+| Package | Why we need it | Source |
+|---|---|---|
+| `flrig` | The hamlib GUI rig controller the launcher's FLrig row spawns | Debian `flrig` |
+| `fldigi` | The multi-mode digimode app the launcher's FLDigi row spawns | Debian `fldigi` |
+| `js8call` | The FT8/JS8 app the launcher's JS8Call row spawns | Debian `js8call` (bookworm arm64: `2.2.0+ds-5`) |
+| `wsjtx` | The FT8/WSPR app the launcher's WSJT-X row spawns | Debian `wsjtx` (bookworm arm64: `2.6.1+repack-1`) |
+| `pat` | The Winlink client the launcher's Pat row spawns | Debian `pat` |
+
 ## Apt install command (reference)
 
 ```bash
 sudo apt-get update
-sudo apt-get install -y xterm pulseaudio pavucontrol
+sudo apt-get install -y \
+    flrig fldigi js8call wsjtx pat \
+    xterm pulseaudio pavucontrol
 ```
 
 > **Why pulseaudio and not pipewire?** The ReticulumHF base ships
@@ -67,8 +92,14 @@ pactl info | grep -E "Server Name|Server Version"
 
 # pavucontrol: launches and shows the running PulseAudio sinks
 pavucontrol --version
+
+# fldigi / js8call / wsjtx: each binary is on PATH
+for b in fldigi flrig js8call wsjtx pat; do
+    command -v "$b" >/dev/null && echo "OK: $b" || echo "MISSING: $b"
+done
 ```
 
 If a window titled "test" appears in the noVNC tab (`:6080`)
-and prints `OK`, `pactl info` returns a server name, and
-`pavucontrol --version` prints a version, the install is complete.
+and prints `OK`, `pactl info` returns a server name,
+`pavucontrol --version` prints a version, and the for-loop
+prints `OK:` for every binary, the install is complete.
