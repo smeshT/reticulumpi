@@ -4,6 +4,14 @@ import os
 import re
 
 app = Flask(__name__)
+# Reload Jinja2 templates on every request (no in-memory caching).
+# The launcher runs as a single-user internal service; the per-request
+# stat() overhead is negligible. Without this, on-disk template edits
+# are invisible until the service is restarted — a footgun the
+# 2026-08-31 reset-audio / row-rename patches hit twice on g90digi.
+# (Flask's default behavior depends on debug mode: on in debug, off
+# otherwise. We run in production mode here, so we have to be explicit.)
+app.jinja_env.auto_reload = True
 
 # On the real g90 boxes, the launcher lives at /home/pi/shared_launcher
 # and the systemd unit is g90-shared-launcher.service. On the nomadpi's
