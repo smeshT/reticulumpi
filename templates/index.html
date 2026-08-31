@@ -301,7 +301,7 @@
 
         <div class="row">
             <div class="name">Reset Audio Devices</div>
-            <form action="/reset-audio" method="post" onsubmit="return confirm('Reset the audio device stack?\n\nThis will:\n  - Stop the Reticulum stack (rnsd + meshchat + freedvtnc2)\n  - Restart the noVNC session (Xvfb + x11vnc + websockify on :6080)\n\nThe shared launcher will be unreachable for ~5s while the noVNC session restarts. Click OK to proceed.');">
+            <form action="/reset-audio" method="post" onsubmit="return confirm('Reset the audio device stack?\n\nThis will:\n  - Briefly stop rnsd + meshchat + freedvtnc2, then restart any that were running\n  - Restart the noVNC session (Xvfb + x11vnc + websockify on :6080)\n\nUse this if audio is wedged AND the per-row FreeDVtnc2 stop/start didn\'t clear it. For normal audio-mode switching, use the FreeDVtnc2 row above - that one only stops freedvtnc2 and leaves rnsd + meshchat running.\n\nThe shared launcher stays up the whole time. Click OK to proceed.');">
                 <button class="stop">Reset</button>
             </form>
         </div>
@@ -309,9 +309,9 @@
         <hr>
 
         <div class="row">
-            <div class="name">Reticulum Stack</div>
-            <form action="/start-reticulum" method="post"><button class="reticulum">Start</button></form>
-            <form action="/stop-reticulum" method="post"><button class="stop">Stop</button></form>
+            <div class="name">FreeDVtnc2 (audio modem)</div>
+            <form action="/start-reticulum" method="post" title="Start rnsd + meshchat + freedvtnc2"><button class="reticulum">Start</button></form>
+            <form action="/stop-reticulum" method="post" title="Stop only freedvtnc2 (the audio modem). rnsd + meshchat stay running — rnsd is independent of the radio and meshchat auto-reconnects via Requires=rnsd."><button class="stop">Stop</button></form>
         </div>
 
         <div class="row">

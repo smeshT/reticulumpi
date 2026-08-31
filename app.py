@@ -510,13 +510,12 @@ def start_reticulum():
 
 @app.route("/stop-reticulum", methods=["POST"])
 def stop_reticulum():
-    """Stop the g90 Reticulum stack. Order matters: meshchat first
-    (so it stops broadcasting announces), then rnsd, then the
-    freedvtnc2 KISS TNC. Stopping the TNC last lets the mesh notice
-    the KISS endpoint going away before rnsd itself disappears.
+    """Stop the audio modem only. Per the 2026-08-30 refactor
+    (mirrors sbitx 2026-08-21 rnsd-decouple): rnsd and meshchat
+    stay up - only freedvtnc2 holds the audio device, and only
+    freedvtnc2 needs to stop to free it. rnsd can run and not
+    affect anything; meshchat auto-reconnects via Requires=rnsd.
     """
-    systemctl("stop", "reticulum-meshchat.service")
-    systemctl("stop", "reticulumhf-rnsd.service")
     systemctl("stop", "freedvtnc2.service")
     return redirect(url_for("index"))
 
@@ -541,29 +540,61 @@ def reset_audio():
     launcher stays up throughout the reset.
 
     Sequence is ordered: stop the leaf first (meshchat), then the
-    parents, then re-arm the display. This matches the g90 image's
+    parents, then re-arm the display, then bring the ret stack back
+    up (only the units that were running before — a fresh
+    click should not silently start a service the operator hadn't
+    started yet, e.g. meshchat or freedvtnc2 which are
+    disabled-by-default). This matches the g90 image's
     start-digital-branch script verbatim.
+
+    Bug history (2026-08-31): earlier revision only restarted
+    novnc-session and left rnsd down. rnsd has Restart=on-failure,
+    so a clean `systemctl stop` does not auto-recover. Operator
+    click on this button must produce a fully-recovered stack.
     """
-    subprocess.Popen(
-        ["sudo", "-n", "systemctl", "stop", "reticulum-meshchat.service"],
-        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-        start_new_session=True,
-    )
-    subprocess.Popen(
-        ["sudo", "-n", "systemctl", "stop", "reticulumhf-rnsd.service"],
-        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-        start_new_session=True,
-    )
-    subprocess.Popen(
-        ["sudo", "-n", "systemctl", "stop", "freedvtnc2.service"],
-        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-        start_new_session=True,
-    )
+    # Snapshot which units were running before we touch anything,
+    # so we can restore the same set afterwards (don't start units
+    # the operator hadn't started yet).
+    ret_units = ("reticulumhf-rnsd.service", "reticulum-meshchat.service", "freedvtnc2.service")
+    was_active = {u: service_active(u) for u in ret_units}
+
+    # Stop in leaf-first order so meshchat stops announcing before
+    # rnsd goes away.
+    for u in ("reticulum-meshchat.service", "reticulumhf-rnsd.service", "freedvtnc2.service"):
+        subprocess.Popen(
+            ["sudo", "-n", "systemctl", "stop", u],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+
+    # Restart the noVNC session so the X server cycle clears stale
+    # audio clients.
     subprocess.Popen(
         ["sudo", "-n", "systemctl", "start", "novnc-session.service"],
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
         start_new_session=True,
     )
+
+    # Bring the ret stack back up — only the units that were
+    # running before. reset-failed first so freedvtnc2's StartLimit
+    # burst from a previous crashloop doesn't no-op the start.
+    # (Retrying via the "Start Digital Branch" button also works.)
+    subprocess.Popen(
+        ["sudo", "-n", "systemctl", "reset-failed", *ret_units],
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        start_new_session=True,
+    )
+    # Order: rnsd first (master daemon), then meshchat (client),
+    # then freedvtnc2 (independent modem). systemd After= chain
+    # does the real ordering; this list is documentation.
+    for u in ("reticulumhf-rnsd.service", "reticulum-meshchat.service", "freedvtnc2.service"):
+        if was_active[u]:
+            subprocess.Popen(
+                ["sudo", "-n", "systemctl", "start", u],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                start_new_session=True,
+            )
+
     return redirect(url_for("index"))
 
 
