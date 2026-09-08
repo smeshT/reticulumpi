@@ -722,19 +722,18 @@ def shutdown_pi():
             "physically power it back on to reconnect.</p>")
 
 
-@app.route("/update-from-server", methods=["GET", "POST"])
+@app.route("/launcher-update", methods=["POST"])
 def update_from_server():
-    """Click-only version page (v0.6+).
+    """POST handler: apply the launcher update and render the result.
 
     Source of truth: github.com/smeshT/reticulumpi.git (public, HTTPS).
     g90digi pulls from there. m5boss is out of the loop.
 
-    On GET: render the version page with current version, latest
-    github tag, and a component-check diff. Operator decides
-    whether to click Update.
-
-    On POST: apply the update (git fetch + checkout the latest
-    tag), restart the service, render the result.
+    Split from /launcher-status so the POST URL is distinct from the
+    GET URL. Browsers sometimes re-POST a URL when you navigate back
+    to it; keeping the POST URL separate from the GET-only status
+    URL means accidental POSTs (via back button, refresh, etc.) can't
+    trigger an update.
 
     Self-bootstrapping: if /home/pi/shared_launcher/ is not a git
     working tree (e.g. the image baked it in directly, or it was
@@ -887,13 +886,10 @@ def update_from_server():
             "<pre style='background:#1a1a1a;color:#ddd;padding:1em;'>"
             + "\n".join(log_lines) +
             "</pre>"
-            # A plain anchor (not a form button) so navigating to the
-            # version page is a fresh GET, not a form resubmission of
-            # this POST. Browsers sometimes re-POST the current URL on
-            # back/forward, which would trigger another unnecessary
-            # update. The link bypasses that.
+            # Anchor (not form button) so navigating is a fresh GET
+            # to a DIFFERENT URL — no browser form-resubmit confusion.
             "<p style='margin-top:1.5em;'>"
-            "<a href='/update-from-server' "
+            "<a href='/launcher-status' "
             "style='display:inline-block;padding:0.6em 1.2em;"
             "background:#0a6;border:none;border-radius:4px;"
             "color:#fff;text-decoration:none;font-weight:600;'>"
@@ -1111,7 +1107,7 @@ def _render_update_failed(title, body):
         + body.replace("<", "&lt;") +
         "</pre>"
         "<p style='margin-top:1.5em;'>"
-        "<a href='/update-from-server' "
+        "<a href='/launcher-status' "
         "style='display:inline-block;padding:0.6em 1.2em;"
         "background:#0a6;border:none;border-radius:4px;"
         "color:#fff;text-decoration:none;font-weight:600;'>"
@@ -1123,6 +1119,269 @@ def _render_update_failed(title, body):
         "</p>"
         "<p><a href='/'>Back to launcher</a></p>"
     )
+
+
+@app.route("/launcher-status", methods=["GET"])
+def launcher_status():
+    """GET-only handler: render the version page (your version,
+    latest, component check). Read-only — no update applied.
+
+    Split from /launcher-update so the GET URL is distinct from
+    the POST URL. The Update button on the launcher home page
+    POSTs to /launcher-update; this route is the destination of
+    the 'Check Components' button on the update result page.
+
+    Refreshing this page (F5 / Ctrl+R) is safe; it's idempotent.
+    """
+    return _render_status_page()
+
+
+def _render_status_page():
+    """Render the version page (your version, latest, component check).
+
+    Read-only. Pulls from github (latest tag + manifest) and the
+    local collector script. No state change.
+    """
+    import json
+    import base64
+    import urllib.request
+    import subprocess
+
+    repo_url = "https://github.com/smeshT/reticulumpi.git"
+    manifest_url = "https://raw.githubusercontent.com/smeshT/reticulumpi/main/releases/launcher/latest.json"
+
+    def run_or_default(cmd, default=""):
+        try:
+            r = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
+            return r.stdout.strip() if r.returncode == 0 else default
+        except Exception:
+            return default
+
+    is_worktree = os.path.isdir(os.path.join(LAUNCHER_DIR, ".git"))
+
+    if not os.path.isdir(LAUNCHER_DIR):
+        local_version = "missing"
+    elif is_worktree:
+        local_version = (
+            run_or_default(
+                ["git", "-C", LAUNCHER_DIR, "describe", "--tags", "--abbrev=0"]
+            ).replace("^{}", "")
+        ) or "untagged"
+    else:
+        local_version = "image-baked"
+
+    # Probe github via the Contents API to dodge raw.githubusercontent.com
+    # CDN caching (~5min TTL on raw content after a push).
+    try:
+        req = urllib.request.Request(
+            "https://api.github.com/repos/smeshT/reticulumpi/contents/releases/launcher/latest.json",
+            headers={"Accept": "application/vnd.github+json"}
+        )
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            api = json.loads(resp.read().decode())
+        idx = json.loads(base64.b64decode(api["content"]).decode())
+        latest_tag = idx.get("latest", "").replace("^{}", "")
+        github_reachable = bool(latest_tag)
+        manifest_fetch_error = None
+    except Exception as e:
+        latest_tag = None
+        github_reachable = False
+        manifest_fetch_error = f"github probe failed: {type(e).__name__}: {e}"
+
+    manifest = None
+    if github_reachable:
+        try:
+            def _fetch_manifest_json(url):
+                # Translate raw.githubusercontent.com URLs to the github
+                # Contents API to bypass the raw CDN cache.
+                if url.startswith("https://raw.githubusercontent.com/"):
+                    stripped = url[len("https://raw.githubusercontent.com/"):]
+                    parts = stripped.split("/", 3)
+                    if len(parts) == 4:
+                        owner, repo, ref, path = parts
+                        api_url = f"https://api.github.com/repos/{owner}/{repo}/contents/{path}?ref={ref}"
+                        req = urllib.request.Request(
+                            api_url,
+                            headers={"Accept": "application/vnd.github+json"}
+                        )
+                        with urllib.request.urlopen(req, timeout=5) as resp:
+                            api = json.loads(resp.read().decode())
+                        return json.loads(base64.b64decode(api["content"]).decode())
+                with urllib.request.urlopen(url, timeout=5) as resp:
+                    return json.loads(resp.read().decode())
+
+            idx = _fetch_manifest_json(manifest_url)
+            manifest_url_full = idx.get("manifest_url")
+            if manifest_url_full:
+                manifest = _fetch_manifest_json(manifest_url_full)
+            else:
+                manifest_fetch_error = "latest.json missing manifest_url field"
+        except Exception as e:
+            manifest_fetch_error = f"{type(e).__name__}: {e}"
+
+    # Run the box-status collector (if it's shipped with this version).
+    box_status = None
+    collector = os.path.join(LAUNCHER_DIR, "scripts", "collect-box-status.sh")
+    if os.path.isfile(collector):
+        try:
+            cs = subprocess.run(
+                ["bash", collector],
+                capture_output=True, text=True, timeout=10,
+                env={**os.environ, "LAUNCHER_DIR": LAUNCHER_DIR}
+            )
+            if cs.returncode == 0 and cs.stdout.strip():
+                box_status = json.loads(cs.stdout)
+        except Exception:
+            box_status = None
+
+    # Diff manifest vs box-state for the component check.
+    component_rows = []
+    if manifest and box_status:
+        # systemd units
+        manifest_units = {u["name"]: u for u in manifest["components"].get("systemd_units", [])}
+        actual_units = {u["name"]: u["state"] for u in box_status.get("systemd_units", [])}
+        for unit_name, _ in manifest_units.items():
+            lookup = unit_name.removesuffix(".service")
+            state = actual_units.get(lookup, "missing")
+            ok = state == "active"
+            mark = "✓" if ok else "✗"
+            component_rows.append((ok, f"{mark} {unit_name:<28} {state}"))
+
+        # pip packages
+        manifest_pkgs = manifest["components"].get("pip_packages", [])
+        actual_pkgs_by_venv = {
+            p["venv"]: dict(
+                (seg.split("==")[0], seg.split("==")[1])
+                for seg in p["packages"].split(",") if "==" in seg
+            )
+            for p in box_status.get("pip_packages", [])
+        }
+        for spec in manifest_pkgs:
+            venv = spec["venv"]
+            pkg = spec["package"]
+            min_v = spec.get("min_version", "")
+            installed = actual_pkgs_by_venv.get(venv, {}).get(pkg)
+            if installed is None:
+                ok = False
+                detail = "not installed"
+            else:
+                ok = installed >= min_v
+                detail = f"{installed}" + (f" (need >= {min_v})" if not ok else "")
+            mark = "✓" if ok else "✗"
+            component_rows.append((ok, f"{mark} {pkg} ({venv})" + (f"  {detail}" if detail else "")))
+
+        # config files
+        for spec in manifest["components"].get("config_files", []):
+            path = spec["path"]
+            wanted_mode = spec.get("mode")
+            actual = next(
+                (f for f in box_status.get("config_files", []) if f["path"] == path),
+                None
+            )
+            if actual is None or not actual.get("exists"):
+                ok = False
+                detail = "missing"
+            elif wanted_mode:
+                want_norm = str(wanted_mode).zfill(4)
+                got_norm = str(actual.get("mode", "")).zfill(4)
+                if got_norm != want_norm:
+                    ok = False
+                    detail = f"mode {got_norm} (want {want_norm})"
+                else:
+                    ok = True
+                    detail = "present"
+            else:
+                ok = True
+                detail = "present"
+            mark = "✓" if ok else "✗"
+            component_rows.append((ok, f"{mark} {path}  {detail}"))
+
+    # Compose the page.
+    rows_html = "\n".join(
+        f"<li>{row}</li>" for _, row in component_rows
+    ) if component_rows else (
+        "<li>(component check unavailable — "
+        + (manifest_fetch_error or "manifest not loaded")
+        + ")</li>"
+    )
+
+    if not github_reachable:
+        latest_line = "<p><strong>Latest:</strong> (github unreachable)</p>"
+        update_button = (
+            "<form method='POST' action='/launcher-update'>"
+            "<button type='submit' disabled>Update launcher</button>"
+            "</form>"
+            "<p><em>Updates unavailable. Reflash the image, or scp from m5boss.</em></p>"
+        )
+    elif local_version == "missing":
+        latest_line = f"<p><strong>Latest:</strong> {latest_tag}</p>"
+        update_button = (
+            "<form method='POST' action='/launcher-update'>"
+            "<button type='submit' onclick=\"return confirm('Bootstrap launcher from github?');\">"
+            f"Bootstrap launcher ({latest_tag})"
+            "</button></form>"
+        )
+    elif local_version == "image-baked":
+        latest_line = f"<p><strong>Latest:</strong> {latest_tag}</p>"
+        update_button = (
+            "<form method='POST' action='/launcher-update'>"
+            "<button type='submit' onclick=\"return confirm('Bootstrap launcher from github?');\">"
+            f"Bootstrap launcher ({latest_tag})"
+            "</button></form>"
+        )
+    elif local_version == latest_tag:
+        latest_line = f"<p><strong>Latest:</strong> {latest_tag} (you're up to date)</p>"
+        update_button = "<p><em>Up to date.</em></p>"
+    else:
+        latest_line = f"<p><strong>Latest:</strong> {latest_tag}</p>"
+        update_button = (
+            "<form method='POST' action='/launcher-update'>"
+            "<button type='submit' onclick=\"return confirm('Update and restart?');\">"
+            f"Update launcher to {latest_tag}"
+            "</button></form>"
+        )
+
+    missing_count = sum(1 for ok, _ in component_rows if not ok)
+
+    if component_rows and missing_count == 0:
+        summary = f"<p><strong>All components match {latest_tag}.</strong></p>"
+    elif component_rows and missing_count > 0:
+        summary = (
+            f"<p><strong>{missing_count} component(s) missing or out of date.</strong> "
+            "Reflash the image, or install manually.</p>"
+        )
+    else:
+        summary = ""
+
+    return (
+        "<h1>Launcher update</h1>"
+        f"<p><strong>Your version:</strong> {local_version}</p>"
+        + latest_line
+        + update_button
+        + "<h2>Component check</h2>"
+        + "<ul style='font-family:monospace;'>"
+        + rows_html
+        + "</ul>"
+        + summary
+        + "<p style='margin-top:2em;'><a href='/'>Back to launcher</a></p>"
+    )
+
+
+# Backwards-compat alias: /update-from-server redirects GET to
+# /launcher-status and forwards POST to the same handler as
+# /launcher-update. This keeps the upgrade path safe during the
+# URL rename — old bookmarks, the form action on the launcher home
+# page (until the template is updated), and any external links
+# continue to work.
+from flask import redirect  # noqa: E402
+@app.route("/update-from-server", methods=["GET"])
+def update_from_server_legacy_get():
+    return redirect("/launcher-status", code=302)
+
+@app.route("/update-from-server", methods=["POST"])
+def update_from_server_legacy_post():
+    # Forward to the canonical POST handler.
+    return update_from_server()
 
 
 if __name__ == "__main__":

@@ -161,6 +161,19 @@
             font-size: 0.9rem;
             font-family: monospace;
         }
+        .check-components-link {
+            color: #2a7;
+            text-decoration: none;
+            font-size: 0.85rem;
+            margin: 0 0.5em;
+            padding: 0.3em 0.6em;
+            border: 1px solid #2a7;
+            border-radius: 4px;
+        }
+        .check-components-link:hover {
+            background: #2a7;
+            color: #fff;
+        }
         .stop {
             background: #aa2222;
         }
@@ -351,9 +364,10 @@
         <hr>
 
         <div class="row version-row">
-            <form action="/update-from-server" method="post" onsubmit="return confirm('Pull the latest launcher code from the server and restart?\n\nThe launcher will be down for ~3s during the restart. Refresh your browser after.');">
+            <form action="/launcher-update" method="post" onsubmit="return confirm('Pull the latest launcher code from the server and restart?\n\nThe launcher will be down for ~3s during the restart. Refresh your browser after.');">
                 <button>Update</button>
             </form>
+            <a href="/launcher-status" class="check-components-link">Check Components</a>
             <span class="version-text">{{ version }}</span>
         </div>
 
