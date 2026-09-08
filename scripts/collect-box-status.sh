@@ -95,12 +95,24 @@ for v in ["rns", "reticulum-meshchatx"]:
 
 # --- config files -------------------------------------------------------------
 
+# NOTE: this list MUST stay in sync with the manifest's
+# components.config_files array in releases/launcher/vX.Y.json. Adding
+# a new required file means adding it here too, otherwise the
+# component check page reports it as "missing" even when it exists on
+# disk.
+#
+# 2026-09-08: added start_pavucontrol.sh and stop_pavucontrol.sh
+# (v0.6.6 manifest entries that were missed here, surfaced during
+# the g90digi v0.6.9 deploy audit). Also removed
+# /etc/systemd/system/modem73.service — that unit was retired in
+# v0.6.6 and the manifest no longer lists it.
 files = []
 for f in [
     "/home/pi/.reticulum/config",
-    "/etc/systemd/system/modem73.service",
     "/etc/systemd/system/meshchatx.service",
     "/usr/local/bin/restart-meshchatx",
+    "/home/pi/shared_launcher/scripts/start_pavucontrol.sh",
+    "/home/pi/shared_launcher/scripts/stop_pavucontrol.sh",
 ]:
     if os.path.exists(f):
         try:
