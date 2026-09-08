@@ -62,6 +62,35 @@ def is_running_proc_with_arg(proc_name, needle):
     return False
 
 
+
+
+def modem73_in_reticulum():
+    """Return True iff the [[Modem73]] block in
+    ~/.reticulum/config has enabled = true. Drives the Modem73
+    interface status pill on the launcher.
+
+    Pattern source: freedvtnc2_in_reticulum on sbitx (which calls
+    check_freedv_in_reticulum.sh). The g90 box doesn't have a
+    freedvtnc2 equivalent on the launcher side; the
+    freedvtnc2.service already does its own enable/disable --now
+    cycle. modem73 has no systemd unit, so we drive
+    enable/disable through the Reticulum config block + rnsd
+    restart (handled by toggle_modem73_audio.sh).
+
+    Implementation added on g90test 2026-09-04; promoted to the
+    canonical recipe in reticulumpi 2026-09-04.
+    """
+    import subprocess
+    try:
+        out = subprocess.check_output(
+            ["/home/pi/shared_launcher/scripts/check_modem73_in_reticulum.sh"],
+            stderr=subprocess.DEVNULL, timeout=2,
+        ).decode().strip()
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired, OSError):
+        return False
+    return out == "true"
+
+
 def service_active(name):
     return subprocess.run(
         ["systemctl", "is-active", "--quiet", name],
@@ -70,9 +99,20 @@ def service_active(name):
     ).returncode == 0
 
 
-def run_script(name):
+def run_script(name, args=None):
+    """Launch a shell script from the SCRIPTS dir as a detached child.
+
+    Optional `args` is a list of CLI arguments to append to the
+    invocation. Pattern source: sbitx's my_launcher/run_script. The
+    g90 launcher (and g90test) originally only had the no-args
+    form; 2026-09-04 upgrade added args support so the modem73
+    toggle can pass "on" or "off" to toggle_modem73_audio.sh.
+    """
+    cmd = [f"{SCRIPTS}/{name}"]
+    if args:
+        cmd.extend(args)
     subprocess.Popen(
-        [f"{SCRIPTS}/{name}"],
+        cmd,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
         start_new_session=True
@@ -145,7 +185,7 @@ def get_zerotier_ip():
     except (subprocess.CalledProcessError, FileNotFoundError):
         return None
     for line in out.splitlines():
-        # "5: <ifname>  inet <ip>/<prefixlen> ..."
+        # "5: zttqh5myou    inet 10.59.42.91/24 ..."
         if ":" not in line:
             continue
         # Split only on the first colon
@@ -241,11 +281,29 @@ def _get_launcher_version():
 @app.route("/")
 def index():
     # Pills are laid out left-to-right in a flex-wrap container, so
-    # dict order is reading order. Grouped to match the launcher's
-    # panel sections: digimodes (FLrig / JS8Call / FLDigi / WSJT-X),
-    # then Pavucontrol (also a quick-launch), then the Pat pair
-    # (Pat Menu + its web UI), then the Reticulum stack
-    # (RNS / MeshChat / FreeDV TNC).
+    # dict order is reading order.
+    #
+    # Layout (mirrors sbitx my_launcher; ordered 2026-09-04 by
+    # @Mmsp907):
+    #
+    #   Always-on block (red flag if any of these shows "Stopped" on a
+    #   healthy box):
+    #     Shared Desktop -> RNSD -> MeshChat
+    #   On-demand block (expect "Stopped" on a fresh boot until the
+    #   operator clicks Start):
+    #     digimodes (FLrig / JS8Call / FLDigi / WSJT-X) ->
+    #     audio apps (Pavucontrol) ->
+    #     pat pair (Pat Menu + Pat) ->
+    #     freedvtnc2 TUI / Modem73 TUI ->
+    #     Reticulum modems (FreeDV TNC + freedvtnc2 interface +
+    #     Modem73 interface) ->
+    #     Pat Menu
+    #
+    # FLrig replaced "Shared Desktop" / "sBitx radio" — the g90 box
+    # uses flrig for its rig control, not the sbitx box's
+    # AudioInjector + sbitx binary. FLrig is always-on here.
+    # (g90test never boots without it either — the test sled needs
+    # flrig to do any actual rig control work.)
     #
     # FreeDV TNC is green if EITHER freedvtnc2.service is active (the
     # --no-cli daemon that meshchat uses as its KISS modem) OR an
@@ -255,11 +313,16 @@ def index():
     # is which mode (headless vs interactive) is in use, not whether
     # the modem works.
     status = {
-        "FLrig": is_running("flrig"),
+        # Always-on block
+        "RNSD": service_active("reticulumhf-rnsd.service"),
+        "MeshChat": service_active("reticulum-meshchat.service"),
+        # On-demand block
         "JS8Call": is_running("js8call"),
+        "FLrig": is_running("flrig"),
         "FLDigi": is_running("fldigi"),
         "WSJT-X": is_running("wsjtx"),
         "Pavucontrol": is_running("pavucontrol"),
+        #"freedvtnc2 TUI": is_running_proc_with_arg("lxterminal", "--title=freedvtnc2"),
         # The yad dialog from patmenu2 always references pmlogo.png
         # in its cmdline (the menu's logo). Earlier the pill was
         # keyed on "Pat Menu" which (a) self-matched the ssh wrapper
@@ -271,17 +334,11 @@ def index():
         # not a substring of any other process on the box.
         "Pat Menu": is_running_proc_with_arg("yad", "patmenu2/pmlogo.png"),
         "Pat": service_active("pat-http.service"),
-        "RNS": service_active("reticulumhf-rnsd.service"),
-        "MeshChat": service_active("reticulum-meshchat.service"),
-        "FreeDV TNC": service_active("freedvtnc2.service")
+        "freedvtnc2 Chat": service_active("freedvtnc2.service")
                      or is_running_proc_with_arg("lxterminal", "--title=freedvtnc2"),
-        # freeDV Waterfall (diagnostic spectrogram) — green iff an
-        # lxterminal with --title=freedv-waterfall is open. The
-        # is_running_proc_with_arg helper avoids the pgrep self-match
-        # bug: the bare pattern "--title=freedv-waterfall" is in the
-        # caller's argv (we set it in start_waterfall.sh), so
-        # pgrep -f would match this Python process.
-        "Waterfall": is_running_proc_with_arg("lxterminal", "--title=freedv-waterfall"),
+        "Modem73 Config TUI": is_running_proc_with_arg("lxterminal", "--title=modem73"),
+        "freedvtnc2 interface": service_active("freedvtnc2.service"),
+        "Modem73 interface": modem73_in_reticulum(),
     }
     return render_template(
         "index.html",
@@ -345,39 +402,6 @@ def stop_flrig():
 @app.route("/start-pavucontrol", methods=["POST"])
 def start_pavucontrol():
     run_script("start_pavucontrol.sh")
-    return redirect(url_for("index"))
-
-
-@app.route("/start-waterfall", methods=["POST"])
-def start_waterfall():
-    """Open the freeDV Waterfall diagnostic terminal. Mirrors
-    start-freedv-tui but does NOT stop freedvtnc2 first: the
-    waterfall reads from the "g90audio" dsnoop device (defined
-    in /etc/asound.conf), so the TNC and the waterfall can hold
-    the G90 audio open simultaneously. That's the whole point
-    of having it as a diagnostic — you can see the spectrum
-    while the Reticulum stack is up and active, without having
-    to tear anything down.
-
-    The audio-device pre-flight lives in start_waterfall.sh
-    (same non-fragile UX as freedv_tui.sh: if the G90 isn't
-    plugged in, the script opens the terminal with a clear
-    "plug in the G90" message instead of letting the Python
-    tool fail with an opaque ALSA error)."""
-    run_script("start_waterfall.sh")
-    return redirect(url_for("index"))
-
-
-@app.route("/stop-waterfall", methods=["POST"])
-def stop_waterfall():
-    """Close the freeDV Waterfall lxterminal. Same pattern as
-    stop-freedv-tui: kill by --title match so we don't touch
-    other lxterminals the user has open on the desktop."""
-    subprocess.Popen(
-        ["pkill", "-f", "lxterminal.*--title=freedv-waterfall"],
-        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-        start_new_session=True,
-    )
     return redirect(url_for("index"))
 
 
@@ -475,59 +499,138 @@ def stop_patmenu():
     return redirect(url_for("index"))
 
 
-@app.route("/start-reticulum", methods=["POST"])
-def start_reticulum():
-    """Start the g90 Reticulum stack: rnsd + meshchat + freedvtnc2.
-    The launcher's Reticulum Stack: Start button is the canonical
-    trigger for the full Reticulum side of the box.
+@app.route("/restart-meshchat", methods=["POST"])
+def restart_meshchat():
+    """Restart meshchat only (not rnsd, not freedvtnc2).
 
-    Architecture (per 2026-08-09 refactor):
-    - rnsd is the master daemon on @rns/default (always runs
-      once started, no modem dependencies)
-    - meshchat is the LXMF chat client (Requires=rnsd)
-    - freedvtnc2 is the KISS TNC for the G90 (independent; will
-      fail gracefully if no audio device is plugged in)
+    Recover-from-manually-stopped verified 2026-09-04: even though
+    reticulum-meshchat.service has Restart=on-failure (not always),
+    explicit `systemctl restart` re-execs the unit regardless of
+    the Restart= setting. Restart=on-failure only governs what
+    systemd does after an unsolicited exit; operator-issued restart
+    always restarts.
 
-    Order matters: rnsd must start first to bind @rns/default
-    before meshchat connects (the sbitx 2026-08-07 master-race
-    fix). meshchat comes up as a client. freedvtnc2 is a separate
-    sub-system that connects to rnsd via TCP.
+    Renamed from /restart-reticulum 2026-09-04 — the old name and
+    handler conflated meshchat with the audio modem (freedvtnc2).
+    freedvtnc2 has its own dedicated Start/Stop now."""
+    systemctl("restart", "reticulum-meshchat.service")
+    return redirect(url_for("index"))
 
-    reset-failed clears any rate-limited "failed" state from
-    freedvtnc2 crashlooping (when the G90 isn't plugged in).
-    StartLimitBurst=5/interval=60s means after 5 fast failures,
-    systemctl start is a no-op until reset-failed runs.
+
+@app.route("/start-freedvtnc2-modem", methods=["POST"])
+def start_freedvtnc2_modem():
+    """Enable + start the freedvtnc2 KISS audio modem.
+
+    Use this when you want the G90's audio modem active for
+    Reticulum / LXMF over HF. freedvtnc2 connects to rnsd via
+    TCP at 127.0.0.1:8001 (config in /etc/reticulumhf/config.env).
+
+    enable --now so the modem comes back on reboot (per the
+    ReticulumHF image's design — the modem is opt-in by default
+    but persistent once activated).
+
+    reset-failed first to clear rate-limit state from a previous
+    crashloop (no G90 plugged in, audio device busy, etc.)."""
+    systemctl("reset-failed", "freedvtnc2.service")
+    systemctl("enable", "--now", "freedvtnc2.service")
+    return redirect(url_for("index"))
+
+
+@app.route("/stop-freedvtnc2-modem", methods=["POST"])
+def stop_freedvtnc2_modem():
+    """Disable + stop the freedvtnc2 KISS audio modem.
+
+    disable --now so the modem stays off across reboots.
+    rnsd and meshchat are unaffected — they keep running.
+    Use this when switching to a different audio mode
+    (js8call, fldigi, wsjtx) or to free the loopback ALSA
+    device for diagnostics."""
+    subprocess.Popen(
+        ["sudo", "-n", "systemctl", "disable", "--now", "freedvtnc2.service"],
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        start_new_session=True,
+    )
+    return redirect(url_for("index"))
+
+
+@app.route("/start-modem73-tui", methods=["POST"])
+def start_modem73_tui():
+    """Open an lxterminal running modem73 in TUI mode on the shared
+    desktop. Same pattern as start-freedv-tui but for modem73.
+
+    The script does NOT pass --device / --callsign — modem73 reads
+    its saved settings from ~/.config/modem73/settings, so the
+    operator's TUI-config changes (audio device, callsign) persist
+    across launcher restarts.
+
+    Conflict story (per sbitx my_launcher operator decision
+    2026-09-04): the TUI mode and the loopback instance (port 8101)
+    share the modem73 binary and likely config files. Don't run both
+    at once — the operator's responsibility, not enforced here.
     """
-    # Reset-failed first so freedvtnc2's crashloop on boot-without-radio
-    # doesn't make this Start button a no-op.
-    systemctl("reset-failed", "reticulumhf-rnsd.service", "reticulum-meshchat.service", "freedvtnc2.service")
-    # rnsd first (master daemon), then meshchat (client), then freedvtnc2 (independent modem).
-    # systemd's per-unit After= chain handles the ordering; the explicit
-    # order in this list is documentation, not a hard contract.
-    systemctl("start", "reticulumhf-rnsd.service", "reticulum-meshchat.service", "freedvtnc2.service")
+    run_script("start_modem73_tui.sh")
     return redirect(url_for("index"))
 
 
-@app.route("/stop-reticulum", methods=["POST"])
-def stop_reticulum():
-    """Stop the g90 Reticulum stack. Order matters: meshchat first
-    (so it stops broadcasting announces), then rnsd, then the
-    freedvtnc2 KISS TNC. Stopping the TNC last lets the mesh notice
-    the KISS endpoint going away before rnsd itself disappears.
-    """
-    systemctl("stop", "reticulum-meshchat.service")
-    systemctl("stop", "reticulumhf-rnsd.service")
-    systemctl("stop", "freedvtnc2.service")
+@app.route("/stop-modem73-tui", methods=["POST"])
+def stop_modem73_tui():
+    """Close the modem73 TUI lxterminal. Same pattern as
+    stop-freedv-tui: kill by --title match so we don't touch other
+    lxterminals the user has open on the desktop."""
+    run_script("stop_modem73_tui.sh")
     return redirect(url_for("index"))
 
 
-@app.route("/restart-reticulum", methods=["POST"])
-def restart_reticulum():
-    """Restart rnsd and meshchat in place. meshchat auto-reconnects
-    once rnsd is back."""
-    systemctl("restart", "reticulumhf-rnsd.service", "reticulum-meshchat.service")
+@app.route("/start-modem73-loopback", methods=["POST"])
+def start_modem73_loopback():
+    """Enable the Modem73 OFDM modem in Reticulum and start the
+    modem73 loopback process.
+
+    Pattern source: sbitx /start-reticulum on the freedvtnc2 audio
+    modem (toggle_freedv_audio.sh). This script does the same three
+    things:
+      1. Set `enabled = true` for the [[Modem73]] block in
+         /home/pi/.reticulum/config (atomic edit)
+      2. Start the modem73 loopback subprocess (no systemd unit —
+         it's a detached child launched by start_modem73_loopback.sh)
+      3. Restart rnsd (reticulumhf-rnsd.service on g90test) so it
+         picks up the new interface config (~3s transport bounce,
+         meshchat auto-restarts via Requires=rnsd)
+
+    Competing audio modems (js8call, wsjtx, fldigi, pavucontrol)
+    are pkill'd first because they may hold the ALSA loopback
+    subdevs that modem73 needs."""
+    run_script("toggle_modem73_audio.sh", args=["on"])
     return redirect(url_for("index"))
 
+
+@app.route("/stop-modem73-loopback", methods=["POST"])
+def stop_modem73_loopback():
+    """Disable the Modem73 OFDM modem in Reticulum and stop the
+    modem73 loopback process. Mirror of /start-modem73-loopback.
+
+    Frees the ALSA loopback subdevs for js8call/wsjtx/fldigi/freedvtnc2.
+    rnsd is restarted so it stops trying to TCP-connect to modem73's
+    KISS port."""
+    run_script("toggle_modem73_audio.sh", args=["off"])
+    return redirect(url_for("index"))
+
+
+@app.route("/reset-modem73-audio", methods=["POST"])
+def reset_modem73_audio():
+    """Reset modem73 audio device to default (audio_input=0, audio_output=0).
+
+    Use when modem73 fails to start because the saved audio device index
+    no longer matches any available hardware (e.g. operator moved the
+    digirig between boxes / swapped USB ports, and the ALSA / PipeWire
+    card numbering shifted).
+
+    Writes audio_input=0 + audio_output=0 to ~/.config/modem73/settings
+    (atomically), then kills + restarts the modem73 loopback subprocess
+    so the new settings take effect. Does NOT touch callsign, port,
+    modulation, CSMA, tx_drive, or the Reticulum [[Modem73]] block."""
+    run_script("reset_modem73_audio.sh")
+    return redirect(url_for("index"))
 
 @app.route("/reset-audio", methods=["POST"])
 def reset_audio():

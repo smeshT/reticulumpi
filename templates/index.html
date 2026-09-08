@@ -281,8 +281,14 @@
         </div>
 
         <div class="row">
+            <div class="name" title="FreeDVtnc2 Chat (interactive terminal in the noVNC tab). Stops the freedvtnc2 daemon first if it's running (only one can hold the audio device). Separate concern from the modem service below.">freedvtnc2 Chat</div>
+            <form action="/start-freedv-tui" method="post"><button>Start</button></form>
+            <form action="/stop-freedv-tui" method="post"><button class="stop">Stop</button></form>
+        </div>
+
+        <div class="row">
             <div class="name">Pat Menu</div>
-            <a class="button" target="_blank" href="http://{{ host }}:5000/ui">Pat UI</a>
+            <a class="button" target="_blank" href="http://{{ host }}:5000/ui">Open</a>
             <form action="/start-patmenu" method="post"><button>Start</button></form>
             <form action="/stop-patmenu" method="post"><button class="stop">Stop</button></form>
         </div>
@@ -291,12 +297,6 @@
             <div class="name">Pavucontrol</div>
             <form action="/start-pavucontrol" method="post"><button>Start</button></form>
             <form action="/stop-pavucontrol" method="post"><button class="stop">Stop</button></form>
-        </div>
-
-        <div class="row">
-            <div class="name">freeDV Waterfall</div>
-            <form action="/start-waterfall" method="post"><button>Start</button></form>
-            <form action="/stop-waterfall" method="post"><button class="stop">Stop</button></form>
         </div>
 
         <div class="row">
@@ -309,21 +309,30 @@
         <hr>
 
         <div class="row">
-            <div class="name">Reticulum Stack</div>
-            <form action="/start-reticulum" method="post"><button class="reticulum">Start</button></form>
-            <form action="/stop-reticulum" method="post"><button class="stop">Stop</button></form>
-        </div>
-
-        <div class="row">
-            <div class="name">MeshChat</div>
+            <div class="name" title="LXMF chat client. rnsd stays up regardless (always-on transport). Click Restart to recover meshchat from any state (running-and-stuck OR manually-stopped).">MeshChat</div>
             <a class="button" target="_blank" href="http://{{ host }}:8000/">Open</a>
-            <form action="/restart-reticulum" method="post"><button>Restart</button></form>
+            <form action="/restart-meshchat" method="post"><button>Restart</button></form>
         </div>
 
         <div class="row">
-            <div class="name">FreeDVtnc2</div>
-            <form action="/start-freedv-tui" method="post"><button>Start</button></form>
-            <form action="/stop-freedv-tui" method="post"><button class="stop">Stop</button></form>
+            <div class="name" title="The FreeDV TNC audio modem. Connects to rnsd via TCP at 127.0.0.1:8001. Independent of MeshChat. Disable --now on stop so it stays off across reboots; enable --now on start so it persists.">freedvtnc2 interface</div>
+            <form action="/start-freedvtnc2-modem" method="post" title="Enable + start freedvtnc2.service. Persists across reboots."><button class="reticulum">Start</button></form>
+            <form action="/stop-freedvtnc2-modem" method="post" title="Disable + stop freedvtnc2.service. Stays off across reboots. Use this before opening js8call/wsjtx/fldigi to free the audio device."><button class="stop">Stop</button></form>
+        </div>
+
+        <div class="row">
+            <div class="name" title="modem73 running headless on the ALSA Loopback device, for self-loopback testing of the Reticulum-over-OFDM channel. Uses ~/.config/modem73/settings for port + audio + callsign. Do NOT run at the same time as the Modem73 TUI row above — same binary, likely shared config.">Modem73 Interface</div>
+            <form action="/start-modem73-loopback" method="post"><button class="reticulum">Start</button></form>
+            <form action="/stop-modem73-loopback" method="post"><button class="stop">Stop</button></form>
+            </form>
+        </div>
+
+        <div class="row">
+            <div class="name" title="Interactive modem73 TUI in an lxterminal on the shared desktop (visible in the noVNC tab). Reads ~/.config/modem73/settings for audio device + callsign so changes persist across restarts. Do NOT run at the same time as the Modem73 row below — same binary, likely shared config.">Modem73 Config TUI</div>
+            <form action="/reset-modem73-audio" method="post" onsubmit="return confirm('Reset modem73 audio device?\n\nThis will:\n  - Set audio_input=0 and audio_output=0 in ~/.config/modem73/settings (uses the default sink — always works on any hardware)\n  - Restart the modem73 loopback subprocess so the new settings take effect\n\nUse this when the audio device moved (e.g. digirig unplugged or switched USB ports) and modem73 fails to open the audio.\n\nClick OK to proceed.');">
+                <button title="Set audio to 0 in settings + restart modem73. Use when audio device moved and modem73 won&apos;t start.">Reset Audio</button>
+            <form action="/start-modem73-tui" method="post"><button>Start</button></form>
+            <form action="/stop-modem73-tui" method="post"><button class="stop">Stop</button></form>
         </div>
 
         <hr>
