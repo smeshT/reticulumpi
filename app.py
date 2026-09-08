@@ -921,7 +921,13 @@ def update_from_server():
                 # live-patches we shipped via scp; they'll be replaced
                 # by the canonical tag content, which is the same
                 # patches + any future fixes.)
-                ["git", "-C", LAUNCHER_DIR, "checkout", "-f", latest_tag, "--", "."],
+                # 2026-09-08: dropped the trailing "-- ." so HEAD moves
+                # to the new tag. Without this, the version page's
+                # git describe reports the old tag even though files
+                # are current (discovered during g90digi v0.6.10
+                # deploy). Safe here because deployed boxes don't have
+                # local commits to preserve.
+                ["git", "-C", LAUNCHER_DIR, "checkout", "-f", latest_tag],
                 capture_output=True, text=True, timeout=30
             )
             if checkout.returncode != 0:

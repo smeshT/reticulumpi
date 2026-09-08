@@ -1,0 +1,75 @@
+{
+  "release": "v0.6.11",
+  "release_date": "2026-09-08",
+  "image_baseline": "g90digi-2026-08-09",
+  "channel": "https://github.com/smeshT/reticulumpi.git",
+  "branch": "main",
+  "components": {
+    "launcher": {
+      "type": "github-pull",
+      "auto_update": true,
+      "source_path": "/"
+    },
+    "systemd_units": [
+      {
+        "name": "g90-shared-launcher.service",
+        "required": true
+      },
+      {
+        "name": "reticulumhf-rnsd.service",
+        "required": true
+      },
+      {
+        "name": "meshchatx.service",
+        "required": true
+      },
+      {
+        "name": "lxmd.service",
+        "required": true
+      }
+    ],
+    "pip_packages": [
+      {
+        "venv": "rns",
+        "package": "rns",
+        "min_version": "1.4.0"
+      },
+      {
+        "venv": "rns",
+        "package": "lxmf",
+        "min_version": "1.1.0"
+      },
+      {
+        "venv": "reticulum-meshchatx",
+        "package": "reticulum-meshchatx",
+        "min_version": "4.8.0"
+      }
+    ],
+    "config_files": [
+      {
+        "path": "/home/pi/.reticulum/config",
+        "required": true
+      },
+      {
+        "path": "/etc/systemd/system/meshchatx.service",
+        "required": true
+      },
+      {
+        "path": "/usr/local/bin/restart-meshchatx",
+        "required": true,
+        "mode": "0755"
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/start_pavucontrol.sh",
+        "required": true,
+        "mode": "0755"
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/stop_pavucontrol.sh",
+        "required": true,
+        "mode": "0755"
+      }
+    ]
+  },
+  "notes": "v0.6.11: fix the Update button to move HEAD when pulling a new tag. The Update button's git checkout command was `git checkout -f <tag> -- .` \u2014 the trailing `-- .` limited the checkout to working-tree files only, leaving HEAD at whatever it was before. The launcher's version page reads `git describe --tags --abbrev=0` which follows HEAD, so after a successful Update the page reported the OLD tag (e.g. \"Your version: v0.6.5\") even when files were at v0.6.10. Discovered during the g90digi v0.6.10 deploy when the operator saw \"Your version: v0.6.5 / Latest: v0.6.10 / out of date\" despite all 12 components being green. Fix: drop the trailing `-- .` so HEAD moves to the new tag. Safe because deployed boxes don't have local commits to preserve. After this release, every successful Update button click will report the correct version on /launcher-status automatically \u2014 no manual `git checkout -f <tag>` needed."
+}
