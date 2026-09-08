@@ -26,62 +26,97 @@ set -euo pipefail
 LAUNCHER_DIR="${LAUNCHER_DIR:-/home/pi/shared_launcher}"
 PIPX_HOME="${PIPX_HOME:-/home/pi/.local}"
 
+# Use python to build the JSON so we get proper string escaping for free.
+python3 - "$LAUNCHER_DIR" "$PIPX_HOME" << 'PYEOF'
+import json
+import os
+import subprocess
+import sys
+
+launcher_dir = sys.argv[1]
+pipx_home = sys.argv[2]
+
 # --- launcher version ---------------------------------------------------------
 
-if [ ! -d "$LAUNCHER_DIR" ]; then
-    launcher_version='"missing"'
-elif [ -d "$LAUNCHER_DIR/.git" ]; then
-    ver=$(cd "$LAUNCHER_DIR" && git describe --tags --abbrev=0 2>/dev/null || echo unknown)
-    launcher_version="\"$ver\""
-else
-    launcher_version='"image-baked"'
-fi
+if not os.path.isdir(launcher_dir):
+    launcher_version = "missing"
+elif os.path.isdir(os.path.join(launcher_dir, ".git")):
+    try:
+        launcher_version = subprocess.run(
+            ["git", "-C", launcher_dir, "describe", "--tags", "--abbrev=0"],
+            capture_output=True, text=True, timeout=5
+        ).stdout.strip().replace("^{}", "") or "untagged"
+    except Exception:
+        launcher_version = "unknown"
+else:
+    launcher_version = "image-baked"
 
 # --- systemd units ------------------------------------------------------------
 
-units_json=""
-for u in g90-shared-launcher reticulumhf-rnsd meshchatx modem73 lxmd; do
-    state=$(systemctl is-active "${u}.service" 2>/dev/null || echo missing)
-    units_json="${units_json}{\"name\":\"${u}\",\"state\":\"${state}\"},"
-done
-units_json="${units_json%,}"
+# Use `systemctl show -p ActiveState --value` which guarantees a single
+# token on stdout. `systemctl is-active` can return multi-line output
+# (e.g. "inactive\nmissing") when the unit is in a transitional state,
+# which breaks naive JSON consumers.
+units = []
+for u in ["g90-shared-launcher", "reticulumhf-rnsd", "meshchatx", "modem73", "lxmd"]:
+    try:
+        state = subprocess.run(
+            ["systemctl", "show", f"{u}.service", "-p", "ActiveState", "--value"],
+            capture_output=True, text=True, timeout=3
+        ).stdout.strip()
+        if not state:
+            state = "missing"
+    except Exception:
+        state = "unknown"
+    units.append({"name": u, "state": state})
 
 # --- pip packages (per venv) --------------------------------------------------
 
-pip_json=""
-for v in rns reticulum-meshchatx; do
-    pip_bin="${PIPX_HOME}/pipx/venvs/${v}/bin/pip"
-    if [ -x "$pip_bin" ]; then
-        pkgs=$("$pip_bin" list --format=freeze 2>/dev/null \
-            | awk -F'==' '{printf "%s==%s,", $1, $2}' \
-            | sed 's/,$//')
-        pip_json="${pip_json}{\"venv\":\"${v}\",\"packages\":\"${pkgs}\"},"
-    else
-        pip_json="${pip_json}{\"venv\":\"${v}\",\"packages\":\"\"},"
-    fi
-done
-pip_json="${pip_json%,}"
+# pipx venvs on this image don't ship a `pip` binary in bin/ — only the
+# entry-point scripts (rnsd, lxmd, meshchatx, etc). pip must be invoked via
+# the venv's python interpreter as `python -m pip`.
+pkgs_by_venv = []
+for v in ["rns", "reticulum-meshchatx"]:
+    py_bin = os.path.join(pipx_home, "pipx", "venvs", v, "bin", "python")
+    pkgs = []
+    if os.path.isfile(py_bin):
+        try:
+            out = subprocess.run(
+                [py_bin, "-m", "pip", "list", "--format=freeze"],
+                capture_output=True, text=True, timeout=10
+            ).stdout
+            for line in out.splitlines():
+                if "==" in line:
+                    name, ver = line.split("==", 1)
+                    pkgs.append(f"{name}=={ver}")
+        except Exception:
+            pass
+    pkgs_by_venv.append({"venv": v, "packages": ",".join(pkgs)})
 
 # --- config files -------------------------------------------------------------
 
-files_json=""
-for f in \
-    /home/pi/.reticulum/config \
-    /etc/systemd/system/modem73.service \
-    /etc/systemd/system/meshchatx.service \
-    /usr/local/bin/restart-meshchatx
-do
-    if [ -e "$f" ]; then
-        mode=$(stat -c '%a' "$f" 2>/dev/null || echo "?")
-        files_json="${files_json}{\"path\":\"${f}\",\"exists\":true,\"mode\":\"${mode}\"},"
-    else
-        files_json="${files_json}{\"path\":\"${f}\",\"exists\":false},"
-    fi
-done
-files_json="${files_json%,}"
+files = []
+for f in [
+    "/home/pi/.reticulum/config",
+    "/etc/systemd/system/modem73.service",
+    "/etc/systemd/system/meshchatx.service",
+    "/usr/local/bin/restart-meshchatx",
+]:
+    if os.path.exists(f):
+        try:
+            mode = oct(os.stat(f).st_mode & 0o777)[2:]
+        except Exception:
+            mode = "?"
+        files.append({"path": f, "exists": True, "mode": mode})
+    else:
+        files.append({"path": f, "exists": False})
 
 # --- emit JSON ----------------------------------------------------------------
 
-cat <<JSON
-{"launcher_version":${launcher_version},"systemd_units":[${units_json}],"pip_packages":[${pip_json}],"config_files":[${files_json}]}
-JSON
+print(json.dumps({
+    "launcher_version": launcher_version,
+    "systemd_units": units,
+    "pip_packages": pkgs_by_venv,
+    "config_files": files,
+}, indent=None))
+PYEOF

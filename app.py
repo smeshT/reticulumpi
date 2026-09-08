@@ -781,21 +781,22 @@ def update_from_server():
         local_version = "image-baked"
 
     # --- 2. What's the latest tag on github? --------------------------------
-
+    # Probe github with urllib first (avoids git's DNS resolution issues on
+    # some networks). If we can fetch latest.json, we know the latest tag.
+    import urllib.request
     try:
-        ls = subprocess.run(
-            ["git", "ls-remote", "--tags", "--sort=-v:refname", repo_url],
-            capture_output=True, text=True, timeout=10
-        )
-        if ls.returncode == 0 and ls.stdout.strip():
-            # first line is the highest tag; ref is refs/tags/vX.Y
-            latest_tag = ls.stdout.splitlines()[0].split("/")[-1]
-        else:
-            latest_tag = None
-    except Exception:
+        with urllib.request.urlopen(
+            "https://raw.githubusercontent.com/smeshT/reticulumpi/main/releases/launcher/latest.json",
+            timeout=5
+        ) as resp:
+            idx = json.loads(resp.read().decode())
+        latest_tag = idx.get("latest", "").replace("^{}", "")
+        github_reachable = bool(latest_tag)
+        manifest_fetch_error = None
+    except Exception as e:
         latest_tag = None
-
-    github_reachable = latest_tag is not None
+        github_reachable = False
+        manifest_fetch_error = f"github probe failed: {type(e).__name__}: {e}"
 
     # --- 3. POST: apply the update -----------------------------------------
 
@@ -872,18 +873,21 @@ def update_from_server():
     # --- 4. GET: render the version page ------------------------------------
 
     # Pull the manifest for the component check.
+    # manifest_fetch_error was already set by the github probe above; we
+    # only need to actually fetch and parse the manifest here.
     manifest = None
     if github_reachable:
         try:
-            import urllib.request
             with urllib.request.urlopen(manifest_url, timeout=5) as resp:
                 idx = json.loads(resp.read().decode())
             manifest_url_full = idx.get("manifest_url")
             if manifest_url_full:
                 with urllib.request.urlopen(manifest_url_full, timeout=5) as resp:
                     manifest = json.loads(resp.read().decode())
+            else:
+                manifest_fetch_error = "latest.json missing manifest_url field"
         except Exception as e:
-            manifest = None
+            manifest_fetch_error = f"{type(e).__name__}: {e}"
 
     # Run the box-status collector (if it's shipped with this version).
     box_status = None
@@ -904,10 +908,13 @@ def update_from_server():
     component_rows = []
     if manifest and box_status:
         # systemd units
+        # Manifest names include the ".service" suffix; collector strips
+        # it. Strip it from manifest keys when looking up.
         manifest_units = {u["name"]: u for u in manifest["components"].get("systemd_units", [])}
         actual_units = {u["name"]: u["state"] for u in box_status.get("systemd_units", [])}
         for unit_name, _ in manifest_units.items():
-            state = actual_units.get(unit_name, "missing")
+            lookup = unit_name.removesuffix(".service")
+            state = actual_units.get(lookup, "missing")
             ok = state == "active"
             mark = "✓" if ok else "✗"
             component_rows.append((ok, f"{mark} {unit_name:<28} {state}"))
@@ -948,9 +955,17 @@ def update_from_server():
             if actual is None or not actual.get("exists"):
                 ok = False
                 detail = "missing"
-            elif wanted_mode and actual.get("mode") != wanted_mode:
-                ok = False
-                detail = f"mode {actual.get('mode')} (want {wanted_mode})"
+            elif wanted_mode:
+                # Normalize both modes to a 4-digit zero-padded octal string
+                # so "0755" and "755" compare equal.
+                want_norm = str(wanted_mode).zfill(4)
+                got_norm = str(actual.get("mode", "")).zfill(4)
+                if got_norm != want_norm:
+                    ok = False
+                    detail = f"mode {got_norm} (want {want_norm})"
+                else:
+                    ok = True
+                    detail = "present"
             else:
                 ok = True
                 detail = "present"
@@ -960,7 +975,11 @@ def update_from_server():
     # Compose the page.
     rows_html = "\n".join(
         f"<li>{row}</li>" for _, row in component_rows
-    ) if component_rows else "<li>(component check unavailable — manifest not loaded)</li>"
+    ) if component_rows else (
+        "<li>(component check unavailable — "
+        + (manifest_fetch_error or "manifest not loaded")
+        + ")</li>"
+    )
 
     if not github_reachable:
         latest_line = "<p><strong>Latest:</strong> (github unreachable)</p>"
