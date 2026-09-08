@@ -99,18 +99,22 @@ sudo apt install -y \
     direwolf \
     avahi-daemon avahi-utils \
     zerotier-one \
-    xterm pulseaudio pavucontrol
+    xterm lxterminal pulseaudio pavucontrol
 
-# pipx (for freedvtnc2 and other Python tools)
+# pipx (for freedvtnc2, lxmd, reticulum-meshchat, etc.)
 sudo apt install -y pipx
 pipx ensurepath
 
 # freedvtnc2 (FreeDV TNC for HF digital modes)
 pipx install freedvtnc2
 
-# reticulum-meshchat (mesh UI on top of Reticulum)
-git clone https://github.com/markqvist/reticulum-meshchat.git \
-    /home/pi/reticulum-meshchat
+# lxmd (LXMF propagation node daemon; provides LXMF over Reticulum)
+pipx install lxmf
+
+# reticulum-meshchatx (mesh UI on top of Reticulum; the v2 of
+# reticulum-meshchat, with a different default port and a faster
+# announce cadence)
+pipx install reticulum-meshchatx
 ```
 
 **Note on direwolf:** As of 2026-08, the apt `direwolf` package
@@ -125,16 +129,18 @@ PTT — no piardopc needed. If you want digipi's ARDOP stack,
 build piardopc from source on the Pi 5 or use the cross-compile
 recipe in `g90-launcher/systemd/install.sh` notes.
 
-**Note on xterm / pulseaudio / pavucontrol:** ReticulumHF's
-base image is LXDE-free (just `Xvfb + openbox + x11vnc`); it
-ships the PulseAudio user config (`~/.config/pulse/`,
+**Note on xterm / lxterminal / pulseaudio / pavucontrol:**
+ReticulumHF's base image is LXDE-free (just `Xvfb + openbox +
+x11vnc`); it ships the PulseAudio user config (`~/.config/pulse/`,
 `~/.config/pavucontrol.ini`) but **not** the packages. Without
 `xterm`, the FreeDV TUI button does nothing (verified 2026-08-17).
-Without `pulseaudio`, the launcher audio rows fall back to
-direct ALSA, the `g90-waterfall.service` `After=pulseaudio.service`
+Without `lxterminal`, the Modem73 Config TUI button does nothing
+(verified 2026-09-08; the script uses `lxterminal --title=modem73`).
+Without `pulseaudio`, the launcher audio rows fall back to direct
+ALSA, the `g90-waterfall.service` `After=pulseaudio.service`
 ordering silently degrades, and `pavucontrol` shows no sinks.
 Without `pavucontrol`, the Start Pavucontrol row errors. The
-apt command above includes all three — see also
+apt command above includes all four — see also
 `g90-image/IMAGE-PACKAGES.md` for the canonical list with the
 "why" for each.
 
@@ -162,18 +168,45 @@ cd /home/pi
 git clone https://github.com/smeshT/reticulumpi.git shared_launcher
 cd shared_launcher
 
+# 1a. Pin to the current launcher release tag. This is what
+# gets served on port 80; if you skip this, you're running
+# whatever happened to be on main at clone time (usually a
+# SHA that's newer than what's been verified on a fleet box).
+git checkout -f v0.6.12   # or whichever latest is on github
+# Check https://github.com/smeshT/reticulumpi/releases for
+# the current version. The version after Step 6 should be
+# the same as the version pinned here.
+
 # 2. Copy the overlay config files into place
 sudo cp g90-image/config/reticulumhf-config.env /etc/reticulumhf/config.env
 sudo cp g90-image/config/hostapd.conf /etc/hostapd/hostapd.conf
 sudo cp g90-image/config/pat-config.json /home/pi/.config/pat/config.json
 sudo cp g90-image/config/start-novnc-session /usr/local/bin/start-novnc-session
 sudo chmod +x /usr/local/bin/start-novnc-session
+
+# 3. Copy the systemd units from the overlay into place
 sudo cp g90-image/systemd-units/g90-shared-launcher.service /etc/systemd/system/
+sudo cp g90-image/systemd-units/meshchatx.service /etc/systemd/system/
+sudo cp g90-image/systemd-units/lxmd.service /etc/systemd/system/
 sudo cp g90-image/systemd-units/pat-http.service /etc/systemd/system/
+# restart-meshchatx is a binary, not a unit; lives at /usr/local/bin/
+sudo cp g90-image/systemd-units/restart-meshchatx /usr/local/bin/
+sudo chmod +x /usr/local/bin/restart-meshchatx
+
+# 4. Create the protected-write directories BEFORE the units start.
+# Both meshchatx.service and lxmd.service run with ProtectSystem=strict
+# and ReadWritePaths=, so their storage directories must exist
+# before `systemctl enable --now`. The prepare-*.sh helpers are
+# idempotent (mkdir -p + chown).
+sudo bash g90-image/scripts/prepare-meshchatx-dirs.sh
+sudo bash g90-image/scripts/prepare-lxmd-dirs.sh
+
+# 5. Patch patmenu2 (only the start-pat-ardop edit; we don't
+# ship a fork)
 sudo cp g90-image/patmenu2-edits/start-pat-ardop /home/pi/patmenu2/start-pat-ardop
 chmod +x /home/pi/patmenu2/start-pat-ardop
 
-# 3. Install the ARDOP PTT bridge (optional — only if using
+# 6. Install the ARDOP PTT bridge (optional — only if using
 #    piardopc / digipify stack)
 sudo mkdir -p /home/pi/ardop
 sudo cp g90-launcher/systemd/ardop-ptt-bridge.service /etc/systemd/system/
@@ -185,7 +218,7 @@ sudo chmod +x /home/pi/ardop/ardop_ptt_bridge.py
 # or grab a prebuilt aarch64 binary from the upstream project.
 # Place it at /home/pi/ardop/piardopc
 
-# 4. (Optional) Install the askpass wrapper for g90 ssh access
+# 7. (Optional) Install the askpass wrapper for g90 ssh access
 sudo mkdir -p /home/pi/.local/bin
 cp g90-image/config/askpass-g90.sh /home/pi/.local/bin/askpass-g90.sh
 chmod 600 /home/pi/.local/bin/askpass-g90.sh
@@ -221,6 +254,8 @@ sudo systemctl daemon-reload
 # Our overlay services (the ones this repo provides):
 sudo systemctl enable --now \
     g90-shared-launcher.service \
+    meshchatx.service \
+    lxmd.service \
     pat-http.service
 
 # ZeroTier (installed by apt, needs joining — see below)
@@ -232,10 +267,12 @@ sudo systemctl enable --now \
     piardopc.service \
     rigctld.service
 
-# Note: reticulumhf-portal.service, reticulumhf-rnsd.service,
-# freedvtnc2, and the AP are pre-installed by the ReticulumHF
-# base image and start automatically on boot. You don't need
-# to enable them — just verify they're up (Step 7).
+# Note: reticulumhf-portal.service starts the box-level web UI on
+# port 80, and reticulumhf-rnsd.service starts the Reticulum
+# network stack daemon. freedvtnc2 is a pipx binary (no
+# systemd unit; runs as a foreground process when launched
+# by the launcher FreeDV TUI row). All three are required by
+# the manifest's component check; verify they're up (Step 7).
 ```
 
 For ZeroTier, join your network:
@@ -253,6 +290,14 @@ After reboot, confirm everything is up:
 # Shared launcher (the page your wifi clients bookmark)
 curl -sI http://g90digi.local/ | head -3
 # Expected: HTTP/1.1 200 OK
+
+# Launcher version + component check (the canonical health endpoint)
+curl -s http://g90digi.local/launcher-status | head -20
+# Expected: "Your version: v0.6.12" / "Latest: v0.6.12 (you're up to date)"
+# Expected: "All components match v0.6.12." — every unit active, every
+# config file present, every pipx venv at the manifest's min_version.
+# If anything is missing, the component list shows ✗ next to the
+# missing unit / file / package.
 
 # pat web UI
 curl -sI http://g90digi.local:5000/ | head -3

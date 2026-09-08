@@ -1,0 +1,75 @@
+{
+  "release": "v0.6.13",
+  "release_date": "2026-09-08",
+  "image_baseline": "g90digi-2026-08-09",
+  "channel": "https://github.com/smeshT/reticulumpi.git",
+  "branch": "main",
+  "components": {
+    "launcher": {
+      "type": "github-pull",
+      "auto_update": true,
+      "source_path": "/"
+    },
+    "systemd_units": [
+      {
+        "name": "g90-shared-launcher.service",
+        "required": true
+      },
+      {
+        "name": "reticulumhf-rnsd.service",
+        "required": true
+      },
+      {
+        "name": "meshchatx.service",
+        "required": true
+      },
+      {
+        "name": "lxmd.service",
+        "required": true
+      }
+    ],
+    "pip_packages": [
+      {
+        "venv": "rns",
+        "package": "rns",
+        "min_version": "1.4.0"
+      },
+      {
+        "venv": "rns",
+        "package": "lxmf",
+        "min_version": "1.1.0"
+      },
+      {
+        "venv": "reticulum-meshchatx",
+        "package": "reticulum-meshchatx",
+        "min_version": "4.8.0"
+      }
+    ],
+    "config_files": [
+      {
+        "path": "/home/pi/.reticulum/config",
+        "required": true
+      },
+      {
+        "path": "/etc/systemd/system/meshchatx.service",
+        "required": true
+      },
+      {
+        "path": "/usr/local/bin/restart-meshchatx",
+        "required": true,
+        "mode": "0755"
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/start_pavucontrol.sh",
+        "required": true,
+        "mode": "0755"
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/stop_pavucontrol.sh",
+        "required": true,
+        "mode": "0755"
+      }
+    ]
+  },
+  "notes": "v0.6.13: recipe catch-up to v0.6.12. The image overlay was already at v0.6.12 (lxmd.service, meshchatx.service, reticulum-meshchatx pipx venv, lxterminal apt package, prepare-*-dirs.sh helpers, all in place), but the human-readable BUILD.md recipe didn't reflect those additions. A fresh flash from the stock ReticulumHF base + this overlay would have produced a v0.6.12-current box because the overlay files were correct, but the operator following BUILD.md by hand would have missed: lxterminal in the apt list, lxmd.service and meshchatx.service in the systemd-units cp block, the prepare-*-dirs.sh invocations between the cp block and Step 6, lxmf and reticulum-meshchatx in the pipx install list (was still pointing at the obsolete reticulum-meshchat git clone), and lxmd.service + meshchatx.service in the systemctl enable --now list. Also added: a \"pin to current tag\" step right after the git clone (Step 4.1a) so a fresh flash produces a box at the right launcher version, and a /launcher-status health check in Step 7 that uses the launcher's own canonical endpoint. README.md updated: pre-built image is no longer claimed to be on github releases (the v0.5 release was a one-off; subsequent builds publish the recipe but not a binary). g90-image/README.md header date updated.\n\nAfter this release, g90f1r2 re-flash is a clean story: flash ReticulumHF base \u2192 run BUILD.md Step 3-7 \u2192 box is at v0.6.12-current."
+}

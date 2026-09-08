@@ -17,10 +17,14 @@ Built with much AI assistance; Openclaw and Minimax M3
 ## Build your own
 
 The `.img.xz` binary isn't shipped in this repo (1 GB is too big
-for git). **A pre-built image is published as a GitHub Release:**
-[v0.5 (2026-08-09)](https://github.com/smeshT/reticulumpi/releases/tag/v0.5).
-Download it from there if you want a ready-to-flash image — no
-build required.
+for git + we don't have release infrastructure wired up for the
+image artifact). **The recipe to build one is in
+[`BUILD.md`](./BUILD.md) and the overlay lives in
+[`g90-image/`](./g90-image/).** A pre-built image was last
+published as a GitHub Release tagged v0.5 (2026-08-09); the
+recipe has been updated since then but a fresh pre-built
+`.img.xz` for v0.6.12 has not been published yet. Until then,
+follow BUILD.md on top of the stock ReticulumHF base image.
 
 If you'd rather build it yourself from this repo + a stock
 ReticulumHF base image, the end-to-end recipe is in

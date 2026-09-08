@@ -1,11 +1,12 @@
-# g90 image state (snapshotted 2026-07-07, updated 2026-07-08)
+# g90 image state (snapshotted 2026-07-07, updated 2026-09-08)
 
 This folder is a **portable snapshot** of the g90 box's
 "image state" — the configuration files that were edited
 or installed on top of the stock g90digi image. It exists
 so that, when the remote g90 Pi comes back online, the
 same edits can be reapplied to a fresh flash without
-having to re-derive them.
+having to re-derive them. The recipe for re-flash is
+[`BUILD.md`](../BUILD.md) in the repo root.
 
 The **shared launcher** (Flask app, port **8090** — the wifi clients' home page) lives in
 the **parent** of this folder. It is a git clone of this repo,
