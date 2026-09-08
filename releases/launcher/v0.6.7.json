@@ -1,0 +1,75 @@
+{
+  "release": "v0.6.7",
+  "release_date": "2026-09-08",
+  "image_baseline": "g90digi-2026-08-09",
+  "channel": "https://github.com/smeshT/reticulumpi.git",
+  "branch": "main",
+  "components": {
+    "launcher": {
+      "type": "github-pull",
+      "auto_update": true,
+      "source_path": "/"
+    },
+    "systemd_units": [
+      {
+        "name": "g90-shared-launcher.service",
+        "required": true
+      },
+      {
+        "name": "reticulumhf-rnsd.service",
+        "required": true
+      },
+      {
+        "name": "meshchatx.service",
+        "required": true
+      },
+      {
+        "name": "lxmd.service",
+        "required": true
+      }
+    ],
+    "pip_packages": [
+      {
+        "venv": "rns",
+        "package": "rns",
+        "min_version": "1.4.0"
+      },
+      {
+        "venv": "rns",
+        "package": "lxmf",
+        "min_version": "1.1.0"
+      },
+      {
+        "venv": "reticulum-meshchatx",
+        "package": "reticulum-meshchatx",
+        "min_version": "4.8.0"
+      }
+    ],
+    "config_files": [
+      {
+        "path": "/home/pi/.reticulum/config",
+        "required": true
+      },
+      {
+        "path": "/etc/systemd/system/meshchatx.service",
+        "required": true
+      },
+      {
+        "path": "/usr/local/bin/restart-meshchatx",
+        "required": true,
+        "mode": "0755"
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/start_pavucontrol.sh",
+        "required": true,
+        "mode": "0755"
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/stop_pavucontrol.sh",
+        "required": true,
+        "mode": "0755"
+      }
+    ]
+  },
+  "notes": "v0.6.7: fix the freedvtnc2 Chat row. The pill and Stop button were both matching the wrong binary \u2014 the chat terminal is an xterm (since xterm is what freedv_tui.sh spawns), but the launcher was checking for lxterminal (the launchers pre-2026-08 path). The pill now correctly reflects whether an xterm titled \"freedvtnc2\" is open (independent of the freedvtnc2.service daemon state). The Stop button now uses pkill -f \"xterm.*-T freedvtnc2\" which matches the actual chat terminal. Verified on g90test: Start opens xterm, pill flips to Running; Stop kills xterm, pill flips to Stopped; the freedvtnc2 Chat pill is now distinct from the freedvtnc2 interface pill (the two were always coupled before, because both checked service_active)."
+}

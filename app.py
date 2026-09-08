@@ -362,8 +362,7 @@ def index():
         # not a substring of any other process on the box.
         "Pat Menu": is_running_proc_with_arg("yad", "patmenu2/pmlogo.png"),
         "Pat": service_active("pat-http.service"),
-        "freedvtnc2 Chat": service_active("freedvtnc2.service")
-                     or is_running_proc_with_arg("lxterminal", "--title=freedvtnc2"),
+        "freedvtnc2 Chat": is_running_proc_with_arg("xterm", "-T freedvtnc2"),
         "Modem73 Config TUI": is_running_proc_with_arg("lxterminal", "--title=modem73"),
         "freedvtnc2 interface": service_active("freedvtnc2.service"),
         "Modem73 interface": modem73_in_reticulum(),
@@ -501,14 +500,17 @@ def start_freedv_tui():
 
 @app.route("/stop-freedv-tui", methods=["POST"])
 def stop_freedv_tui():
-    """Close the FreeDV TUI lxterminal. Kills any lxterminal whose
-    title is "freedvtnc2" (the script sets --title=freedvtnc2).
-    Using pkill on the title pattern is more reliable than pkill
-    on the binary name alone, which would also match other
-    lxterminals the user has open.
+    """Close the FreeDV TUI xterm. Kills any xterm whose
+    title is "freedvtnc2" (the script sets -T freedvtnc2).
+    Using pkill on the "-T freedvtnc2" pattern is more reliable
+    than pkill on the binary name alone, which would also match
+    other xterms the user has open. Pattern source: 2026-09-08
+    fix — the previous lxterminal-based pkill pattern matched
+    no processes because the chat terminal is actually xterm
+    (see memory/2026-09-08-freedv-chat-fix.md).
     """
     subprocess.Popen(
-        ["pkill", "-f", "lxterminal.*--title=freedvtnc2"],
+        ["pkill", "-f", "xterm.*-T freedvtnc2"],
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
         start_new_session=True,
     )
