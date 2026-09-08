@@ -1,0 +1,19 @@
+[Unit]
+Description=LXMF Propagation Node Daemon (lxmd) for g90test
+After=network-online.target zerotier-one.service reticulumhf-rnsd.service
+Wants=zerotier-one.service reticulumhf-rnsd.service
+
+[Service]
+Type=simple
+User=pi
+Environment=HOME=/home/pi
+ExecStart=/home/pi/.local/bin/lxmd
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/pi/.lxmd /home/pi/.reticulum
+
+[Install]
+WantedBy=multi-user.target

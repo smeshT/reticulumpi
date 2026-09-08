@@ -1,0 +1,75 @@
+{
+  "release": "v0.6.12",
+  "release_date": "2026-09-08",
+  "image_baseline": "g90digi-2026-08-09",
+  "channel": "https://github.com/smeshT/reticulumpi.git",
+  "branch": "main",
+  "components": {
+    "launcher": {
+      "type": "github-pull",
+      "auto_update": true,
+      "source_path": "/"
+    },
+    "systemd_units": [
+      {
+        "name": "g90-shared-launcher.service",
+        "required": true
+      },
+      {
+        "name": "reticulumhf-rnsd.service",
+        "required": true
+      },
+      {
+        "name": "meshchatx.service",
+        "required": true
+      },
+      {
+        "name": "lxmd.service",
+        "required": true
+      }
+    ],
+    "pip_packages": [
+      {
+        "venv": "rns",
+        "package": "rns",
+        "min_version": "1.4.0"
+      },
+      {
+        "venv": "rns",
+        "package": "lxmf",
+        "min_version": "1.1.0"
+      },
+      {
+        "venv": "reticulum-meshchatx",
+        "package": "reticulum-meshchatx",
+        "min_version": "4.8.0"
+      }
+    ],
+    "config_files": [
+      {
+        "path": "/home/pi/.reticulum/config",
+        "required": true
+      },
+      {
+        "path": "/etc/systemd/system/meshchatx.service",
+        "required": true
+      },
+      {
+        "path": "/usr/local/bin/restart-meshchatx",
+        "required": true,
+        "mode": "0755"
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/start_pavucontrol.sh",
+        "required": true,
+        "mode": "0755"
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/stop_pavucontrol.sh",
+        "required": true,
+        "mode": "0755"
+      }
+    ]
+  },
+  "notes": "v0.6.12: ship lxmd.service in the image overlay (and a prepare-lxmd-dirs.sh helper). Previously the manifest listed lxmd.service as required and the collector checked for it, but the actual systemd unit file was never committed to g90-image/systemd-units/ \u2014 meaning a fresh image bake wouldn't include lxmd.service and the launcher's component check would flag it as missing. This was caught when installing lxmd on g90test (dev sled) for parity with g90digi. After this release, the image overlay contains: g90-image/systemd-units/lxmd.service (mirrored to g90-image/pi4/systemd-units/), g90-image/scripts/prepare-lxmd-dirs.sh (idempotent mkdir + chown helper that the install recipe should run before enabling lxmd.service, mirroring the prepare-meshchatx-dirs.sh pattern). Also removed the stale modem73.service reference from the collector's systemd unit list (modem73 was retired in v0.6.6; the manifest no longer lists it)."
+}

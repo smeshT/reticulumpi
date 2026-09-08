@@ -58,7 +58,7 @@ else:
 # (e.g. "inactive\nmissing") when the unit is in a transitional state,
 # which breaks naive JSON consumers.
 units = []
-for u in ["g90-shared-launcher", "reticulumhf-rnsd", "meshchatx", "modem73", "lxmd"]:
+for u in ["g90-shared-launcher", "reticulumhf-rnsd", "meshchatx", "lxmd"]:
     try:
         state = subprocess.run(
             ["systemctl", "show", f"{u}.service", "-p", "ActiveState", "--value"],
