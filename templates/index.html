@@ -344,6 +344,7 @@
             <div class="name" title="Interactive modem73 TUI in an lxterminal on the shared desktop (visible in the noVNC tab). Reads ~/.config/modem73/settings for audio device + callsign so changes persist across restarts. Do NOT run at the same time as the Modem73 row below — same binary, likely shared config.">Modem73 Config TUI</div>
             <form action="/reset-modem73-audio" method="post" onsubmit="return confirm('Reset modem73 audio device?\n\nThis will:\n  - Set audio_input=0 and audio_output=0 in ~/.config/modem73/settings (uses the default sink — always works on any hardware)\n  - Restart the modem73 loopback subprocess so the new settings take effect\n\nUse this when the audio device moved (e.g. digirig unplugged or switched USB ports) and modem73 fails to open the audio.\n\nClick OK to proceed.');">
                 <button title="Set audio to 0 in settings + restart modem73. Use when audio device moved and modem73 won&apos;t start.">Reset Audio</button>
+            </form>
             <form action="/start-modem73-tui" method="post"><button>Start</button></form>
             <form action="/stop-modem73-tui" method="post"><button class="stop">Stop</button></form>
         </div>
