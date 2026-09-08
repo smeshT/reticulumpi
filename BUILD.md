@@ -115,6 +115,14 @@ pipx install lxmf
 # reticulum-meshchat, with a different default port and a faster
 # announce cadence)
 pipx install reticulum-meshchatx
+
+# modem73 (OFDM software modem for HF/VHF/UHF; provides a
+# Reticulum TCP interface bridged to the radio channel — see
+# docs/MODEM73.md for the full design and config)
+pipx install modem73
+# launcher scripts reference /usr/bin/modem73; the pipx binary
+# lives at ~/.local/bin/modem73, so symlink:
+sudo ln -sf /home/pi/.local/bin/modem73 /usr/bin/modem73
 ```
 
 **Note on direwolf:** As of 2026-08, the apt `direwolf` package

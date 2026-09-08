@@ -1,0 +1,75 @@
+{
+  "release": "v0.6.14",
+  "release_date": "2026-09-08",
+  "image_baseline": "g90digi-2026-08-09",
+  "channel": "https://github.com/smeshT/reticulumpi.git",
+  "branch": "main",
+  "components": {
+    "launcher": {
+      "type": "github-pull",
+      "auto_update": true,
+      "source_path": "/"
+    },
+    "systemd_units": [
+      {
+        "name": "g90-shared-launcher.service",
+        "required": true
+      },
+      {
+        "name": "reticulumhf-rnsd.service",
+        "required": true
+      },
+      {
+        "name": "meshchatx.service",
+        "required": true
+      },
+      {
+        "name": "lxmd.service",
+        "required": true
+      }
+    ],
+    "pip_packages": [
+      {
+        "venv": "rns",
+        "package": "rns",
+        "min_version": "1.4.0"
+      },
+      {
+        "venv": "rns",
+        "package": "lxmf",
+        "min_version": "1.1.0"
+      },
+      {
+        "venv": "reticulum-meshchatx",
+        "package": "reticulum-meshchatx",
+        "min_version": "4.8.0"
+      }
+    ],
+    "config_files": [
+      {
+        "path": "/home/pi/.reticulum/config",
+        "required": true
+      },
+      {
+        "path": "/etc/systemd/system/meshchatx.service",
+        "required": true
+      },
+      {
+        "path": "/usr/local/bin/restart-meshchatx",
+        "required": true,
+        "mode": "0755"
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/start_pavucontrol.sh",
+        "required": true,
+        "mode": "0755"
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/stop_pavucontrol.sh",
+        "required": true,
+        "mode": "0755"
+      }
+    ]
+  },
+  "notes": "v0.6.14: add modem73 to BUILD.md recipe and IMAGE-PACKAGES.md. modem73 is installed via `pipx install modem73` (PyPI) with a `sudo ln -sf /home/pi/.local/bin/modem73 /usr/bin/modem73` symlink because the launcher scripts reference `/usr/bin/modem73` directly. The launcher already wires the Modem73 Config TUI row to `start_modem73_tui.sh` (lxterminal + modem73) and the headless loopback path to `start_modem73_loopback.sh` (modem73 --headless --config). The recipe was missing the install step; both BUILD.md Step 3 and IMAGE-PACKAGES.md (new \"Pipx venvs\" section) now document it. Discovered during the clean-image-build prep: an operator reviewing BUILD.md flagged that modem73 was unwired even though the launcher uses it. Caught before the clean build ran \u2014 saved an \"almost built an image without modem73\" outcome."
+}

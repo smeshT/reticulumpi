@@ -42,6 +42,28 @@ re-installing them is harmless but wastes bandwidth:
 - `hostapd`, `dnsmasq` (the g90digi AP)
 - `~/.config/pavucontrol.ini` and `~/.config/pulse/` (per-user config the setup wizard writes, but **the server package itself is not** — see required packages above)
 
+## Pipx venvs (the launcher's Reticulum stack)
+
+These are the Python tools the launcher expects on the box,
+installed via `pipx` into isolated venvs at
+`/home/pi/.local/pipx/venvs/<name>/` with shims at
+`/home/pi/.local/bin/<name>`. ReticulumHF base ships
+`pipx` + `freedvtnc2`; the others below are added by the
+overlay recipe.
+
+| Package | Why we need it | Added when |
+|---|---|---|
+| `lxmf` | Provides the `lxmd` daemon (LXMF propagation node) and the `lxmf` Python library used by the launcher's lxmf integration. Without it, `lxmd.service` won't start and the manifest's component check flags lxmd as missing. | 2026-09-08 |
+| `reticulum-meshchatx` | The v2 of `reticulum-meshchat` with a different default port (8000) and faster announce cadence. The launcher wires meshchatx on :8000 (was :9100 before v0.6.6 swapped to meshchatx). The legacy `reticulum-meshchat` package is retired. | 2026-09-08 |
+| `modem73` | OFDM software modem for HF/VHF/UHF. Provides the `modem73` binary that the launcher's Modem73 Config TUI row spawns (via `start_modem73_tui.sh`, which opens `lxterminal --title=modem73`) and that the loopback instance runs headlessly (`start_modem73_loopback.sh` → `/usr/bin/modem73 --headless --config ~/.config/modem73/settings`). Without it, the Modem73 Config TUI row errors with "command not found" and the loopback path is broken. See `docs/MODEM73.md` for the full design and config. Install: `pipx install modem73 && sudo ln -sf /home/pi/.local/bin/modem73 /usr/bin/modem73` (the launcher scripts reference `/usr/bin/modem73` for consistency with the apt-installed digimode apps). | 2026-09-08 |
+
+> **Why a separate section from apt?** The apt packages above
+> come from the Debian package index; the pipx venvs are
+> PyPI packages isolated per-tool so that `lxmf` upgrades
+> don't break `freedvtnc2`, etc. The launcher's manifest
+> (`releases/launcher/*.json` `components.pip_packages`)
+> tracks these separately from `components.required_packages`.
+
 ## Digimode apps (apt) — also required
 
 These are the audio-side apps the launcher's rows spawn. Not
