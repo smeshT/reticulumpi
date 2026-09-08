@@ -99,6 +99,34 @@ def service_active(name):
     ).returncode == 0
 
 
+def service_installed(name):
+    """True iff the systemd unit file is installed on this box.
+
+    Used to gate UI actions (Restart buttons) so a click on a box
+    that doesn't have the service installed produces a visible
+    error message instead of a silent `systemctl restart` failure
+    that returns exit code 5 ("Unit not found").
+
+    Distinguishes installed-but-masked from not-installed at all:
+    masked services have to be unmasked first; we don't auto-do
+    that, so masked counts as not-installed for our purposes.
+    """
+    try:
+        r = subprocess.run(
+            ["systemctl", "list-unit-files", "--no-legend", name],
+            capture_output=True, text=True, timeout=3
+        )
+        if not r.stdout.strip():
+            return False
+        for line in r.stdout.splitlines():
+            cols = line.split()
+            if len(cols) >= 2 and cols[1] != "masked":
+                return True
+        return False
+    except Exception:
+        return False
+
+
 def run_script(name, args=None):
     """Launch a shell script from the SCRIPTS dir as a detached child.
 
@@ -315,7 +343,7 @@ def index():
     status = {
         # Always-on block
         "RNSD": service_active("reticulumhf-rnsd.service"),
-        "MeshChat": service_active("reticulum-meshchat.service"),
+        "MeshChatX": service_active("meshchatx.service"),
         # On-demand block
         "JS8Call": is_running("js8call"),
         "FLrig": is_running("flrig"),
@@ -499,21 +527,44 @@ def stop_patmenu():
     return redirect(url_for("index"))
 
 
-@app.route("/restart-meshchat", methods=["POST"])
-def restart_meshchat():
-    """Restart meshchat only (not rnsd, not freedvtnc2).
+@app.route("/restart-meshchatx", methods=["POST"])
+def restart_meshchatx():
+    """Restart MeshChatX only (not rnsd, not the legacy meshchat).
 
-    Recover-from-manually-stopped verified 2026-09-04: even though
-    reticulum-meshchat.service has Restart=on-failure (not always),
-    explicit `systemctl restart` re-execs the unit regardless of
-    the Restart= setting. Restart=on-failure only governs what
-    systemd does after an unsolicited exit; operator-issued restart
-    always restarts.
+    MeshChatX is the chat client on port 8000 (was 9100 pre-2026-09-08;
+    flipped to match the legacy meshchat port so existing bookmarks
+    and operator muscle memory keep working). Joins rnsd's shared
+    AF_UNIX instance; doesn't open its own KISS port.
 
-    Renamed from /restart-reticulum 2026-09-04 — the old name and
-    handler conflated meshchat with the audio modem (freedvtnc2).
-    freedvtnc2 has its own dedicated Start/Stop now."""
-    systemctl("restart", "reticulum-meshchat.service")
+    Operates the same way the old /restart-meshchat did: explicit
+    `systemctl restart` bypasses Restart=on-failure and re-execs the
+    unit regardless of whether systemd thought it should be running.
+
+    If meshchatx.service isn't installed on this box (the operator
+    hasn't installed the new chat client yet), we return a visible
+    error page rather than silently failing — clicking Restart should
+    not look successful when the underlying service is missing.
+
+    Helper: /usr/local/bin/restart-meshchatx (also exposed for the
+    wifi captive portal button). Same effect as this route, just
+    invokable from the shell without going through Flask.
+
+    Replaces the legacy /restart-meshchat (post 2026-09-08; the
+    legacy meshchat was retired because MeshChatX subsumes it).
+    """
+    if not service_installed("meshchatx.service"):
+        return (
+            "<h1>MeshChatX not installed</h1>"
+            "<p>The meshchatx.service unit file is not present on this "
+            "box. The legacy reticulum-meshchat.service has been "
+            "retired; MeshChatX replaces it.</p>"
+            "<p>To install on a fleet box, see the recipe in "
+            "<code>g90-image/IMAGE-PACKAGES.md</code> "
+            "(meshchatx pipx venv + systemd unit + helper).</p>"
+            "<p style='margin-top:2em;'>"
+            "<a href='/'>Back to launcher</a></p>"
+        )
+    systemctl("restart", "meshchatx.service")
     return redirect(url_for("index"))
 
 
@@ -637,18 +688,25 @@ def reset_audio():
     """Reset the audio device stack. Mirrors what
     /usr/local/bin/start-digital-branch does on the g90 box's
     node-portal: stops the digital-mode services that may be holding
-    ALSA handles (reticulum-meshchat, reticulumhf-rnsd, freedvtnc2),
-    then restarts the noVNC session so the X server cycle clears any
+    ALSA handles (meshchatx, reticulumhf-rnsd, freedvtnc2), then
+    restarts the noVNC session so the X server cycle clears any
     stale audio clients. The shared launcher's web UI is itself served
     on :80, independent of the noVNC session on :6080, so the
     launcher stays up throughout the reset.
 
-    Sequence is ordered: stop the leaf first (meshchat), then the
+    Sequence is ordered: stop the leaf first (meshchatx), then the
     parents, then re-arm the display. This matches the g90 image's
     start-digital-branch script verbatim.
+
+    Note (2026-09-08): the legacy reticulum-meshchat.service used to
+    be stopped here too. It's been retired (MeshChatX subsumes it),
+    so the stop call for that service was removed. If a box still
+    has the legacy service installed, systemctl stop on it would
+    silently succeed (the unit just isn't there), so we don't gate
+    on its presence.
     """
     subprocess.Popen(
-        ["sudo", "-n", "systemctl", "stop", "reticulum-meshchat.service"],
+        ["sudo", "-n", "systemctl", "stop", "meshchatx.service"],
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
         start_new_session=True,
     )

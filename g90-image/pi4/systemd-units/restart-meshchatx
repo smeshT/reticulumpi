@@ -1,0 +1,14 @@
+#!/bin/bash
+# restart-meshchatx: handler for the wifi captive-portal "Restart MeshChatX"
+# button. Idempotent — clears a previously-failed state and restarts the
+# service so a fresh web UI is reachable on TCP/8000 (was 9100 pre-2026-09-08).
+set -e
+sudo systemctl reset-failed meshchatx.service
+sudo systemctl restart meshchatx.service
+# Brief wait so the caller can immediately GET /api/v1/status without
+# hitting a connection-refused window. ~3s is enough on a Pi 5 with
+# Python interpreter startup.
+sleep 3
+sudo systemctl is-active --quiet meshchatx.service \
+  && echo "meshchatx.service active" \
+  || (echo "meshchatx.service FAILED to come up"; journalctl -u meshchatx.service --no-pager -n 10; exit 1)

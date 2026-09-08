@@ -1,0 +1,75 @@
+{
+  "release": "v0.6.6",
+  "release_date": "2026-09-08",
+  "image_baseline": "g90digi-2026-08-09",
+  "channel": "https://github.com/smeshT/reticulumpi.git",
+  "branch": "main",
+  "components": {
+    "launcher": {
+      "type": "github-pull",
+      "auto_update": true,
+      "source_path": "/"
+    },
+    "systemd_units": [
+      {
+        "name": "g90-shared-launcher.service",
+        "required": true
+      },
+      {
+        "name": "reticulumhf-rnsd.service",
+        "required": true
+      },
+      {
+        "name": "meshchatx.service",
+        "required": true
+      },
+      {
+        "name": "lxmd.service",
+        "required": true
+      }
+    ],
+    "pip_packages": [
+      {
+        "venv": "rns",
+        "package": "rns",
+        "min_version": "1.4.0"
+      },
+      {
+        "venv": "rns",
+        "package": "lxmf",
+        "min_version": "1.1.0"
+      },
+      {
+        "venv": "reticulum-meshchatx",
+        "package": "reticulum-meshchatx",
+        "min_version": "4.8.0"
+      }
+    ],
+    "config_files": [
+      {
+        "path": "/home/pi/.reticulum/config",
+        "required": true
+      },
+      {
+        "path": "/etc/systemd/system/meshchatx.service",
+        "required": true
+      },
+      {
+        "path": "/usr/local/bin/restart-meshchatx",
+        "required": true,
+        "mode": "0755"
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/start_pavucontrol.sh",
+        "required": true,
+        "mode": "0755"
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/stop_pavucontrol.sh",
+        "required": true,
+        "mode": "0755"
+      }
+    ]
+  },
+  "notes": "v0.6.6: legacy reticulum-meshchat.service retired; MeshChatX (meshchatx.service) is now the only chat client, listening on TCP/8000 (port was 9100 in earlier releases; flipped to match legacy port so existing bookmarks work). Launcher row labelled MeshChat, Open points at :8000, Restart runs systemctl restart meshchatx.service (the route gates on service_installed and returns a helpful error if meshchatx is not installed yet). reset-audio stops meshchatx.service instead of reticulum-meshchat.service. Overlay recipe gained g90-image/systemd-units/meshchatx.service, restart-meshchatx helper, and prepare-meshchatx-dirs.sh install helper. Also adds the missing start_pavucontrol.sh / stop_pavucontrol.sh scripts (the Pavucontrol Start/Stop buttons were 500'ing because these scripts never made it into the github repo after the g90digi image diverged from the sbitx layout on 2026-08-09 — verified fixed on g90test). Same recipe as v0.6.5 — the manifest lists what should be installed; this release adds the missing unit/helper files to the overlay."
+}

@@ -322,9 +322,9 @@
         <hr>
 
         <div class="row">
-            <div class="name" title="LXMF chat client. rnsd stays up regardless (always-on transport). Click Restart to recover meshchat from any state (running-and-stuck OR manually-stopped).">MeshChat</div>
+            <div class="name" title="LXMF chat client. rnsd stays up regardless (always-on transport). Click Restart to recover MeshChatX from any state (running-and-stuck OR manually-stopped). Joins rnsd's shared AF_UNIX instance; doesn't open its own KISS port. Listens on :8000.">MeshChat</div>
             <a class="button" target="_blank" href="http://{{ host }}:8000/">Open</a>
-            <form action="/restart-meshchat" method="post"><button>Restart</button></form>
+            <form action="/restart-meshchatx" method="post"><button>Restart</button></form>
         </div>
 
         <div class="row">

@@ -1,0 +1,41 @@
+[Unit]
+Description=MeshChatX (LXMF chat client for Reticulum)
+# Joins the shared Reticulum instance exposed by reticulumhf-rnsd.service
+# at AF_UNIX @rns/default. Does NOT open the MODEM73 TCP port itself —
+# that lives in rnsd's transport.
+#
+# Listens on TCP/8000 (replaces the legacy reticulum-meshchat.service
+# on the same port). Port flipped from 9100 -> 8000 on 2026-09-08 so
+# existing bookmarks and operator muscle memory continue to work; the
+# legacy service was retired in the same change.
+After=network-online.target reticulumhf-rnsd.service
+Wants=network-online.target
+Requires=reticulumhf-rnsd.service
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+Environment=HOME=/home/pi
+# Storage pinned to a stable path so we don't drift into /home/pi/storage
+# (which is the meshchatx default and would collide with sideband/etc).
+# Logs go to ~/.reticulum-meshchatx/logs by default — separate from --storage-dir.
+ExecStart=/home/pi/.local/bin/meshchatx --headless --host 0.0.0.0 --port 8000 --reticulum-config-dir /home/pi/.reticulum --storage-dir /home/pi/meshchatx-storage --no-https
+WorkingDirectory=/home/pi
+Restart=on-failure
+RestartSec=10
+# Match lxmd's hardening; everything meshchatx writes to during startup
+# must be enumerated or ProtectSystem=strict will block it on a read-only FS.
+#   /home/pi/.reticulum              -> rnsd shared-instance + interface config
+#   /home/pi/meshchatx-storage       -> --storage-dir (sqlite DB, identity, plugin data)
+#   /home/pi/.reticulum-meshchatx    -> default log directory (NOT --storage-dir)
+#   /tmp                              -> Python tempfile.gettempdir()
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/pi/.reticulum /home/pi/meshchatx-storage /home/pi/.reticulum-meshchatx /tmp
+
+[Install]
+WantedBy=multi-user.target
