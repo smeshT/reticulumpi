@@ -783,13 +783,20 @@ def update_from_server():
     # --- 2. What's the latest tag on github? --------------------------------
     # Probe github with urllib first (avoids git's DNS resolution issues on
     # some networks). If we can fetch latest.json, we know the latest tag.
-    import urllib.request
+    #
+    # Use the github Contents API instead of raw.githubusercontent.com
+    # for latest.json specifically: raw CDN caches stale content for ~5
+    # minutes after a push, which means a fresh release isn't visible
+    # immediately. The API is uncached for this use case.
+    import urllib.request, base64
     try:
-        with urllib.request.urlopen(
-            "https://raw.githubusercontent.com/smeshT/reticulumpi/main/releases/launcher/latest.json",
-            timeout=5
-        ) as resp:
-            idx = json.loads(resp.read().decode())
+        req = urllib.request.Request(
+            "https://api.github.com/repos/smeshT/reticulumpi/contents/releases/launcher/latest.json",
+            headers={"Accept": "application/vnd.github+json"}
+        )
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            api = json.loads(resp.read().decode())
+        idx = json.loads(base64.b64decode(api["content"]).decode())
         latest_tag = idx.get("latest", "").replace("^{}", "")
         github_reachable = bool(latest_tag)
         manifest_fetch_error = None
@@ -834,7 +841,14 @@ def update_from_server():
         # Fetch + checkout the latest tag.
         if latest_tag and github_reachable:
             fetch = subprocess.run(
-                ["git", "-C", LAUNCHER_DIR, "fetch", "--tags", "--depth=50", "origin"],
+                # --force is required because we force-update tags on github
+                # during fix-up releases (e.g. v0.6 -> v0.6.1 -> v0.6.2 ->
+                # v0.6.3 all point at the same launcher code; we tag
+                # the same commit under a new name when shipping a
+                # manifest-only fix). Without --force, the fetch refuses
+                # to overwrite local tags and the update fails.
+                ["git", "-C", LAUNCHER_DIR, "fetch", "--tags", "--force",
+                 "--depth=50", "origin"],
                 capture_output=True, text=True, timeout=60
             )
             if fetch.returncode != 0:
@@ -842,7 +856,13 @@ def update_from_server():
             log_lines.append("git fetch OK")
 
             checkout = subprocess.run(
-                ["git", "-C", LAUNCHER_DIR, "checkout", latest_tag, "--", "."],
+                # -f overwrites any locally-modified files. The operator
+                # clicked "Update", so they explicitly want to clobber
+                # local state. (Local mods on the box right now are
+                # live-patches we shipped via scp; they'll be replaced
+                # by the canonical tag content, which is the same
+                # patches + any future fixes.)
+                ["git", "-C", LAUNCHER_DIR, "checkout", "-f", latest_tag, "--", "."],
                 capture_output=True, text=True, timeout=30
             )
             if checkout.returncode != 0:
@@ -867,6 +887,22 @@ def update_from_server():
             "<pre style='background:#1a1a1a;color:#ddd;padding:1em;'>"
             + "\n".join(log_lines) +
             "</pre>"
+            # A plain anchor (not a form button) so navigating to the
+            # version page is a fresh GET, not a form resubmission of
+            # this POST. Browsers sometimes re-POST the current URL on
+            # back/forward, which would trigger another unnecessary
+            # update. The link bypasses that.
+            "<p style='margin-top:1.5em;'>"
+            "<a href='/update-from-server' "
+            "style='display:inline-block;padding:0.6em 1.2em;"
+            "background:#0a6;border:none;border-radius:4px;"
+            "color:#fff;text-decoration:none;font-weight:600;'>"
+            "Check Components</a>"
+            "</p>"
+            "<p style='color:#888;font-size:0.9em;'>"
+            "Click here to check the system for missing and outdated "
+            "components (no update applied)."
+            "</p>"
             "<p><a href='/'>Back to launcher</a></p>"
         )
 
@@ -875,15 +911,41 @@ def update_from_server():
     # Pull the manifest for the component check.
     # manifest_fetch_error was already set by the github probe above; we
     # only need to actually fetch and parse the manifest here.
+    #
+    # Use the github Contents API to dodge the raw.githubusercontent.com
+    # CDN cache (~5min TTL on raw content after a push). The API call
+    # below returns base64 in 'content' which we decode.
+    import base64
+    def _fetch_manifest_json(url):
+        # Translate raw.githubusercontent.com URLs to the github API,
+        # so a fresh push is visible immediately on the next click.
+        # Format: https://raw.githubusercontent.com/<owner>/<repo>/<ref>/<path>
+        # API:     https://api.github.com/repos/<owner>/<repo>/contents/<path>?ref=<ref>
+        if url.startswith("https://raw.githubusercontent.com/"):
+            stripped = url[len("https://raw.githubusercontent.com/"):]
+            parts = stripped.split("/", 3)
+            if len(parts) == 4:
+                owner, repo, ref, path = parts
+                api_url = f"https://api.github.com/repos/{owner}/{repo}/contents/{path}?ref={ref}"
+                req = urllib.request.Request(
+                    api_url,
+                    headers={"Accept": "application/vnd.github+json"}
+                )
+                with urllib.request.urlopen(req, timeout=5) as resp:
+                    api = json.loads(resp.read().decode())
+                return json.loads(base64.b64decode(api["content"]).decode())
+        # Fallback: fetch as raw JSON (works for non-github URLs and the
+        # API fallback).
+        with urllib.request.urlopen(url, timeout=5) as resp:
+            return json.loads(resp.read().decode())
+
     manifest = None
     if github_reachable:
         try:
-            with urllib.request.urlopen(manifest_url, timeout=5) as resp:
-                idx = json.loads(resp.read().decode())
+            idx = _fetch_manifest_json(manifest_url)
             manifest_url_full = idx.get("manifest_url")
             if manifest_url_full:
-                with urllib.request.urlopen(manifest_url_full, timeout=5) as resp:
-                    manifest = json.loads(resp.read().decode())
+                manifest = _fetch_manifest_json(manifest_url_full)
             else:
                 manifest_fetch_error = "latest.json missing manifest_url field"
         except Exception as e:
@@ -1048,6 +1110,17 @@ def _render_update_failed(title, body):
         "<pre style='background:#1a1a1a;color:#ddd;padding:1em;'>"
         + body.replace("<", "&lt;") +
         "</pre>"
+        "<p style='margin-top:1.5em;'>"
+        "<a href='/update-from-server' "
+        "style='display:inline-block;padding:0.6em 1.2em;"
+        "background:#0a6;border:none;border-radius:4px;"
+        "color:#fff;text-decoration:none;font-weight:600;'>"
+        "Check Components</a>"
+        "</p>"
+        "<p style='color:#888;font-size:0.9em;'>"
+        "Click here to check the system for missing and outdated "
+        "components (no update applied)."
+        "</p>"
         "<p><a href='/'>Back to launcher</a></p>"
     )
 
