@@ -1,0 +1,75 @@
+{
+  "release": "v0.6.9",
+  "release_date": "2026-09-08",
+  "image_baseline": "g90digi-2026-08-09",
+  "channel": "https://github.com/smeshT/reticulumpi.git",
+  "branch": "main",
+  "components": {
+    "launcher": {
+      "type": "github-pull",
+      "auto_update": true,
+      "source_path": "/"
+    },
+    "systemd_units": [
+      {
+        "name": "g90-shared-launcher.service",
+        "required": true
+      },
+      {
+        "name": "reticulumhf-rnsd.service",
+        "required": true
+      },
+      {
+        "name": "meshchatx.service",
+        "required": true
+      },
+      {
+        "name": "lxmd.service",
+        "required": true
+      }
+    ],
+    "pip_packages": [
+      {
+        "venv": "rns",
+        "package": "rns",
+        "min_version": "1.4.0"
+      },
+      {
+        "venv": "rns",
+        "package": "lxmf",
+        "min_version": "1.1.0"
+      },
+      {
+        "venv": "reticulum-meshchatx",
+        "package": "reticulum-meshchatx",
+        "min_version": "4.8.0"
+      }
+    ],
+    "config_files": [
+      {
+        "path": "/home/pi/.reticulum/config",
+        "required": true
+      },
+      {
+        "path": "/etc/systemd/system/meshchatx.service",
+        "required": true
+      },
+      {
+        "path": "/usr/local/bin/restart-meshchatx",
+        "required": true,
+        "mode": "0755"
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/start_pavucontrol.sh",
+        "required": true,
+        "mode": "0755"
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/stop_pavucontrol.sh",
+        "required": true,
+        "mode": "0755"
+      }
+    ]
+  },
+  "notes": "v0.6.9: ship pavucontrol scripts at the correct path + lxterminal as an image-overlay package. Three issues were discovered during the 2026-09-08 v0.6.8 g90digi deploy: (1) the pavucontrol scripts from v0.6.6 were committed only at g90-image/scripts/ but the launcher's run_script() reads from the top-level scripts/ dir on the deployed box, so the scripts never landed at /home/pi/shared_launcher/scripts/ on g90digi. (2) the top-level scripts/start_pavucontrol.sh path was gitignored (it was originally excluded because Slate had a parallel desktop-launcher-kit version with the same name). v0.6.9 un-excludes that path with an explanatory comment, and commits the g90 project versions there. (3) start_modem73_tui.sh on g90digi failed silently because lxterminal is not on the ReticulumHF base image (same trap as xterm in 2026-08). Fix: apt install lxterminal on g90digi now, add lxterminal to g90-image/IMAGE-PACKAGES.md so future image bakes include it. Verified on g90digi: Modem73 Config TUI Start opens lxterminal --title=modem73 with modem73 TUI; Stop pkill works; pavucontrol scripts land at /home/pi/shared_launcher/scripts/ after pull. Cumulative on top of v0.6.5 -> v0.6.8 + this fix."
+}

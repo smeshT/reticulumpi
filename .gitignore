@@ -88,8 +88,17 @@ scripts/install-remind-cron.sh
 scripts/media-relocator.sh
 scripts/start_desktop*
 scripts/stop_desktop*
-scripts/start_pavucontrol.sh
-scripts/stop_pavucontrol.sh
+# scripts/start_pavucontrol.sh and scripts/stop_pavucontrol.sh were
+# previously gitignored because the originals at this path were Slate's
+# desktop-launcher-kit versions (referencing /home/pi/my_launcher/
+# paths). As of v0.6.9 (2026-09-08) the g90 project ships its OWN
+# pavucontrol scripts at this top-level path, matching the convention
+# of all other launcher-callable scripts (start_fldigi.sh,
+# start_modem73_tui.sh, start_patmenu.sh, etc.). The g90 versions are
+# the canonical source of truth on deployed boxes (landed at
+# /home/pi/shared_launcher/scripts/ via the Update button's git
+# checkout). Do NOT re-add the .gitignore exclusion without
+# coordinating with the g90 project.
 
 # Slate's parallel g90-launcher/scripts/ files (desktop launcher kit,
 # not part of the g90 HF-radio project). The g90 project only owns
