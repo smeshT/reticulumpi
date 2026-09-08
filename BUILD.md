@@ -74,21 +74,21 @@ unzip needed.
 2. Power on. The Pi boots, expands the rootfs to fill the
    drive, and reboots (~30-60 seconds).
 3. After reboot, find the Pi on your network:
-   - **mDNS:** `ssh pi@g90digi.local` (or whatever hostname
+   - **mDNS:** `ssh pi@reticulumpi.local` (or whatever hostname
      you set)
    - **LAN IP:** check your router's admin page, or use
      `nmap -sn 192.168.1.0/24` (replace with your subnet)
    - **AP:** the Pi broadcasts a `ReticulumHF` wifi network
      (default password on the printed card in the box). Connect
      to it; the Pi is at `192.168.4.1`.
-4. SSH in: `ssh pi@g90digi.local` (or LAN IP).
+4. SSH in: `ssh pi@reticulumpi.local` (or LAN IP).
 5. Run `sudo apt update && sudo apt upgrade -y` and reboot.
    This pulls the latest package versions. (~10-15 min on Pi 4)
 
 ## Step 3 — Install overlay packages
 
 ```bash
-# On the g90 box, as the pi user:
+# On the reticulumpi box, as the pi user:
 
 # apt packages
 sudo apt install -y \
