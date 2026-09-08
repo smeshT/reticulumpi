@@ -722,75 +722,312 @@ def shutdown_pi():
             "physically power it back on to reconnect.</p>")
 
 
-@app.route("/update-from-server", methods=["POST"])
+@app.route("/update-from-server", methods=["GET", "POST"])
 def update_from_server():
-    """Pull the latest from the central repo at
-    pi@nomadpi.local:/home/pi/repos/reticulumpi.git and
-    restart the launcher service. The g90 is a clone of
-    that repo, so a `git pull --ff-only` brings in any
-    new commits the workspace has pushed.
+    """Click-only version page (v0.6+).
 
-    The button has a JS confirm() so accidental clicks
-    don't restart the launcher mid-session. After the
-    pull + restart, the page renders a status block
-    showing what changed (or "Already up to date").
+    Source of truth: github.com/smeshT/reticulumpi.git (public, HTTPS).
+    g90digi pulls from there. m5boss is out of the loop.
+
+    On GET: render the version page with current version, latest
+    github tag, and a component-check diff. Operator decides
+    whether to click Update.
+
+    On POST: apply the update (git fetch + checkout the latest
+    tag), restart the service, render the result.
+
+    Self-bootstrapping: if /home/pi/shared_launcher/ is not a git
+    working tree (e.g. the image baked it in directly, or it was
+    renamed out of the way), the first POST clones the repo from
+    github into that path. The image-baked `templates/` directory
+    is restored from the sibling `shared_launcher.imagebak-*`
+    snapshot if present, so the launcher keeps the page-specific
+    paths/colors the bare repo doesn't track.
 
     Failure modes:
-    - Network/SSH down: git pull errors, we surface
-      the error in the page. Launcher stays on the
-      current code.
-    - Local divergence (someone edited on the g90):
-      --ff-only rejects the pull, we surface the
+    - github unreachable: page says 'unable to check' and falls
+      back to 'reflash or scp from m5boss'. No state change.
+    - Local divergence: --ff-only refuses; page surfaces the
       error. Launcher stays on the current code.
-    - Restart fails: service goes down. User has to
-      SSH in and `sudo systemctl start
-      g90-shared-launcher.service` manually.
+    - Restart fails: service goes down. User has to ssh in and
+      `sudo systemctl start g90-shared-launcher.service` manually.
     """
     import subprocess
-    # 1. pull (--ff-only refuses if there are local commits)
-    pull = subprocess.run(
-        ["git", "-C", LAUNCHER_DIR,
-         "pull", "--ff-only", "origin", "master"],
-        capture_output=True, text=True, timeout=30,
-    )
-    if pull.returncode != 0:
+    import json
+    import shutil
+
+    repo_url = "https://github.com/smeshT/reticulumpi.git"
+    manifest_url = "https://raw.githubusercontent.com/smeshT/reticulumpi/main/releases/launcher/latest.json"
+    tag_pattern = "refs/tags/v*"
+
+    # --- 1. What's on the box right now? -----------------------------------
+
+    def run_or_default(cmd, default=""):
+        try:
+            r = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
+            return r.stdout.strip() if r.returncode == 0 else default
+        except Exception:
+            return default
+
+    is_worktree = os.path.isdir(os.path.join(LAUNCHER_DIR, ".git"))
+
+    if not os.path.isdir(LAUNCHER_DIR):
+        local_version = "missing"
+    elif is_worktree:
+        local_version = run_or_default(
+            ["git", "-C", LAUNCHER_DIR, "describe", "--tags", "--abbrev=0"]
+        ) or "untagged"
+    else:
+        local_version = "image-baked"
+
+    # --- 2. What's the latest tag on github? --------------------------------
+
+    try:
+        ls = subprocess.run(
+            ["git", "ls-remote", "--tags", "--sort=-v:refname", repo_url],
+            capture_output=True, text=True, timeout=10
+        )
+        if ls.returncode == 0 and ls.stdout.strip():
+            # first line is the highest tag; ref is refs/tags/vX.Y
+            latest_tag = ls.stdout.splitlines()[0].split("/")[-1]
+        else:
+            latest_tag = None
+    except Exception:
+        latest_tag = None
+
+    github_reachable = latest_tag is not None
+
+    # --- 3. POST: apply the update -----------------------------------------
+
+    if request.method == "POST":
+        log_lines = []
+
+        # Bootstrap: if LAUNCHER_DIR isn't a working tree, clone from github.
+        if not is_worktree:
+            log_lines.append(f"LAUNCHER_DIR is not a git working tree ({local_version}); bootstrapping from github")
+            clone = subprocess.run(
+                ["git", "clone", "--depth=50", repo_url, LAUNCHER_DIR],
+                capture_output=True, text=True, timeout=120
+            )
+            if clone.returncode != 0:
+                return _render_update_failed(
+                    "Bootstrap clone failed",
+                    clone.stdout + clone.stderr
+                )
+            log_lines.append("Cloned from github OK")
+
+            # Restore image-baked templates if a snapshot exists.
+            import glob
+            snapshots = sorted(glob.glob("/home/pi/shared_launcher.imagebak-*"))
+            if snapshots:
+                latest_snap = snapshots[-1]
+                tpl_src = os.path.join(latest_snap, "templates")
+                tpl_dst = os.path.join(LAUNCHER_DIR, "templates")
+                if os.path.isdir(tpl_src):
+                    shutil.copytree(tpl_src, tpl_dst, dirs_exist_ok=True)
+                    log_lines.append(f"Restored image-baked templates from {latest_snap}")
+                log_lines.append(f"NOTE: image-baked services (systemd units, pip packages) are NOT auto-installed. Reflash to bring the box in line with {latest_tag or 'the latest image'}.")
+
+            is_worktree = True
+
+        # Fetch + checkout the latest tag.
+        if latest_tag and github_reachable:
+            fetch = subprocess.run(
+                ["git", "-C", LAUNCHER_DIR, "fetch", "--tags", "--depth=50", "origin"],
+                capture_output=True, text=True, timeout=60
+            )
+            if fetch.returncode != 0:
+                return _render_update_failed("git fetch failed", fetch.stdout + fetch.stderr)
+            log_lines.append("git fetch OK")
+
+            checkout = subprocess.run(
+                ["git", "-C", LAUNCHER_DIR, "checkout", latest_tag, "--", "."],
+                capture_output=True, text=True, timeout=30
+            )
+            if checkout.returncode != 0:
+                return _render_update_failed(
+                    f"git checkout {latest_tag} failed",
+                    checkout.stdout + checkout.stderr
+                )
+            log_lines.append(f"git checkout {latest_tag} OK")
+
+        # Restart the service.
+        subprocess.Popen(
+            ["sudo", "-n", "systemctl", "restart", LAUNCHER_SERVICE],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+        log_lines.append("systemctl restart issued; service will be back in ~3s")
+
         return (
-            "<h1>Update failed</h1>"
-            "<p>git pull returned non-zero. The launcher is still "
-            "running on the previous code. Common causes:</p>"
-            "<ul>"
-            "<li>Network/SSH to the nomadpi is down</li>"
-            "<li>Local edits on this g90 (--ff-only refuses "
-            "non-fast-forward pulls)</li>"
-            "</ul>"
+            "<h1>Updated</h1>"
+            "<p>Refresh your browser to load the new launcher.</p>"
+            "<h2>log</h2>"
             "<pre style='background:#1a1a1a;color:#ddd;padding:1em;'>"
-            + pull.stdout.replace("<", "&lt;") + "\n"
-            + pull.stderr.replace("<", "&lt;") +
+            + "\n".join(log_lines) +
             "</pre>"
             "<p><a href='/'>Back to launcher</a></p>"
         )
-    # 2. restart the service. The old process exits, the
-    # service comes back with the new code. The user's
-    # browser will lose the connection mid-load and
-    # they'll need to refresh.
-    subprocess.Popen(
-        ["sudo", "-n", "systemctl", "restart",
-         LAUNCHER_SERVICE],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        start_new_session=True,
-    )
-    # Give the service a moment to start, then build the page
-    import time
-    time.sleep(2)
+
+    # --- 4. GET: render the version page ------------------------------------
+
+    # Pull the manifest for the component check.
+    manifest = None
+    if github_reachable:
+        try:
+            import urllib.request
+            with urllib.request.urlopen(manifest_url, timeout=5) as resp:
+                idx = json.loads(resp.read().decode())
+            manifest_url_full = idx.get("manifest_url")
+            if manifest_url_full:
+                with urllib.request.urlopen(manifest_url_full, timeout=5) as resp:
+                    manifest = json.loads(resp.read().decode())
+        except Exception as e:
+            manifest = None
+
+    # Run the box-status collector (if it's shipped with this version).
+    box_status = None
+    collector = os.path.join(LAUNCHER_DIR, "scripts", "collect-box-status.sh")
+    if os.path.isfile(collector):
+        try:
+            cs = subprocess.run(
+                ["bash", collector],
+                capture_output=True, text=True, timeout=10,
+                env={**os.environ, "LAUNCHER_DIR": LAUNCHER_DIR}
+            )
+            if cs.returncode == 0 and cs.stdout.strip():
+                box_status = json.loads(cs.stdout)
+        except Exception:
+            box_status = None
+
+    # Diff manifest vs box-state for the component check.
+    component_rows = []
+    if manifest and box_status:
+        # systemd units
+        manifest_units = {u["name"]: u for u in manifest["components"].get("systemd_units", [])}
+        actual_units = {u["name"]: u["state"] for u in box_status.get("systemd_units", [])}
+        for unit_name, _ in manifest_units.items():
+            state = actual_units.get(unit_name, "missing")
+            ok = state == "active"
+            mark = "✓" if ok else "✗"
+            component_rows.append((ok, f"{mark} {unit_name:<28} {state}"))
+
+        # pip packages
+        manifest_pkgs = manifest["components"].get("pip_packages", [])
+        actual_pkgs_by_venv = {
+            p["venv"]: dict(
+                (seg.split("==")[0], seg.split("==")[1])
+                for seg in p["packages"].split(",") if "==" in seg
+            )
+            for p in box_status.get("pip_packages", [])
+        }
+        for spec in manifest_pkgs:
+            venv = spec["venv"]
+            pkg = spec["package"]
+            min_v = spec.get("min_version", "")
+            installed = actual_pkgs_by_venv.get(venv, {}).get(pkg)
+            if installed is None:
+                ok = False
+                detail = "not installed"
+            else:
+                # Lexical compare is fine for semver tags; ship a real
+                # version compare if we ever care about 1.10 > 1.9.
+                ok = installed >= min_v
+                detail = f"{installed}" + (f" (need >= {min_v})" if not ok else "")
+            mark = "✓" if ok else "✗"
+            component_rows.append((ok, f"{mark} {pkg} ({venv})" + (f"  {detail}" if detail else "")))
+
+        # config files
+        for spec in manifest["components"].get("config_files", []):
+            path = spec["path"]
+            wanted_mode = spec.get("mode")
+            actual = next(
+                (f for f in box_status.get("config_files", []) if f["path"] == path),
+                None
+            )
+            if actual is None or not actual.get("exists"):
+                ok = False
+                detail = "missing"
+            elif wanted_mode and actual.get("mode") != wanted_mode:
+                ok = False
+                detail = f"mode {actual.get('mode')} (want {wanted_mode})"
+            else:
+                ok = True
+                detail = "present"
+            mark = "✓" if ok else "✗"
+            component_rows.append((ok, f"{mark} {path}  {detail}"))
+
+    # Compose the page.
+    rows_html = "\n".join(
+        f"<li>{row}</li>" for _, row in component_rows
+    ) if component_rows else "<li>(component check unavailable — manifest not loaded)</li>"
+
+    if not github_reachable:
+        latest_line = "<p><strong>Latest:</strong> (github unreachable)</p>"
+        update_button = "<p><em>Updates unavailable. Reflash the image, or scp from m5boss.</em></p>"
+    elif local_version == "missing":
+        latest_line = f"<p><strong>Latest:</strong> {latest_tag}</p>"
+        update_button = (
+            "<form method='POST'>"
+            "<button type='submit' onclick=\"return confirm('Bootstrap launcher from github?');\">"
+            f"Bootstrap launcher ({latest_tag})"
+            "</button></form>"
+        )
+    elif local_version == "image-baked":
+        latest_line = f"<p><strong>Latest:</strong> {latest_tag}</p>"
+        update_button = (
+            "<form method='POST'>"
+            "<button type='submit' onclick=\"return confirm('Bootstrap launcher from github?');\">"
+            f"Bootstrap launcher ({latest_tag})"
+            "</button></form>"
+        )
+    elif local_version == latest_tag:
+        latest_line = f"<p><strong>Latest:</strong> {latest_tag} (you're up to date)</p>"
+        update_button = "<p><em>Up to date.</em></p>"
+    else:
+        latest_line = f"<p><strong>Latest:</strong> {latest_tag}</p>"
+        update_button = (
+            "<form method='POST'>"
+            "<button type='submit' onclick=\"return confirm('Update and restart?');\">"
+            f"Update launcher to {latest_tag}"
+            "</button></form>"
+        )
+
+    missing_count = sum(1 for ok, _ in component_rows if not ok)
+
+    if component_rows and missing_count == 0:
+        summary = f"<p><strong>All components match {latest_tag}.</strong></p>"
+    elif component_rows and missing_count > 0:
+        summary = (
+            f"<p><strong>{missing_count} component(s) missing or out of date.</strong> "
+            "Reflash the image, or install manually.</p>"
+        )
+    else:
+        summary = ""
+
     return (
-        "<h1>Updated</h1>"
-        "<p>git pull succeeded and the launcher service was "
-        "restarted. <strong>Refresh your browser</strong> to "
-        "load the new code.</p>"
-        "<h2>git pull output</h2>"
+        "<h1>Launcher update</h1>"
+        f"<p><strong>Your version:</strong> {local_version}</p>"
+        + latest_line
+        + update_button
+        + "<h2>Component check</h2>"
+        + "<ul style='font-family:monospace;'>"
+        + rows_html
+        + "</ul>"
+        + summary
+        + "<p style='margin-top:2em;'><a href='/'>Back to launcher</a></p>"
+    )
+
+
+def _render_update_failed(title, body):
+    """Helper for the update-failed page. Same shape as the old
+    version-page failure block."""
+    return (
+        "<h1>Update failed</h1>"
+        f"<p>{title}. The launcher is still running on the previous code.</p>"
+        "<h2>log</h2>"
         "<pre style='background:#1a1a1a;color:#ddd;padding:1em;'>"
-        + (pull.stdout or "(no output — already up to date)").replace("<", "&lt;") +
+        + body.replace("<", "&lt;") +
         "</pre>"
         "<p><a href='/'>Back to launcher</a></p>"
     )
