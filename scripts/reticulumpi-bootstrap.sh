@@ -37,7 +37,11 @@ set -euo pipefail
 GITHUB_REPO="https://github.com/smeshT/reticulumpi.git"
 GITHUB_RAW_BASE="https://raw.githubusercontent.com/smeshT/reticulumpi/main"
 LAUNCHER_DIR="/home/pi/shared_launcher"
-LAUNCHER_PORT="${LAUNCHER_PORT:-8090}"
+# Launcher on :80 to match the deployed g90 layout (port 80 is what
+# the wifi captive portal redirects to; the launcher is the daily-
+# driver UI). The ReticulumHF setup wizard sits on :8080.
+# Override at run time: LAUNCHER_PORT=9090 bash reticulumpi-bootstrap.sh
+LAUNCHER_PORT="${LAUNCHER_PORT:-80}"
 MODEM73_VERSION="2.4.0"
 RNS_VERSION="1.4.2"
 LXMF_VERSION=""  # latest
@@ -310,13 +314,41 @@ phase "Phase 7: overlay (config files + systemd units)"
 # Config files
 sudo cp g90-image/config/reticulumhf-config.env /etc/reticulumhf/config.env
 
-# Mark setup as complete. The ReticulumHF wizard (port 80) creates this
-# file when its setup flow finishes. If the operator prefers the
-# bootstrap's defaults and wants freedvtnc2.service to actually start
-# (its systemd unit has ConditionPathExists=!file), we create the file
-# here. Delete it to re-run the wizard:
+# Mark setup as complete. The ReticulumHF wizard creates this file
+# when its setup flow finishes. If the operator prefers the bootstrap's
+# defaults and wants freedvtnc2.service to actually start (its systemd
+# unit has ConditionPathExists=!file), we create the file here. Delete
+# it to re-run the wizard:
 #   sudo rm /etc/reticulumhf/.setup_complete
 sudo touch /etc/reticulumhf/.setup_complete
+
+# Patch the ReticulumHF setup-portal to read PORT from the environment.
+# Upstream the wizard hardcodes port 80 in /opt/reticulumhf/setup-portal/
+# app.py:1799 ("app.run(host='0.0.0.0', port=80, debug=False)"), which
+# conflicts with the launcher on :80. g90digi hand-patches this line to
+# read os.environ.get('PORT', 8080) and binds 8080. We do the same
+# patch here so the layout matches g90digi (launcher :80, wizard :8080,
+# node-portal :8081).
+WIZARD_APP=/opt/reticulumhf/setup-portal/app.py
+if [ -f "$WIZARD_APP" ] && ! grep -q 'os.environ.get..PORT' "$WIZARD_APP"; then
+    sudo sed -i 's|app.run(host="0.0.0.0", port=80, debug=False)|port=int(os.environ.get("PORT", 8080))\n    app.run(host="0.0.0.0", port=port, debug=False)|' "$WIZARD_APP"
+    ok "patched wizard to read PORT from env (default 8080)"
+elif [ -f "$WIZARD_APP" ]; then
+    ok "wizard already reads PORT from env (no patch needed)"
+else
+    ok "wizard app.py not at $WIZARD_APP (ReticulumHF base not installed?)"
+fi
+
+# Set the wizard's PORT to 8080 in its systemd unit. The patch above
+# only changes the app; we still need the unit to export PORT=8080.
+sudo mkdir -p /etc/systemd/system/reticulumhf-portal.service.d
+sudo tee /etc/systemd/system/reticulumhf-portal.service.d/port.conf >/dev/null <<'EOF'
+[Service]
+Environment="PORT=8080"
+EOF
+sudo systemctl daemon-reload
+ok "wizard bound to :8080 (PORT=8080 in drop-in)"
+
 sudo cp g90-image/config/hostapd.conf /etc/hostapd/hostapd.conf
 sudo cp g90-image/config/pat-config.json /home/pi/.config/pat/config.json
 

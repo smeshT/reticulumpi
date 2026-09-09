@@ -14,13 +14,26 @@ After=network.target
 [Service]
 User=pi
 WorkingDirectory=/home/pi/shared_launcher
-# LAUNCHER_PORT=8090 is the port the launcher binds. We set it
-# explicitly here, even though app.py's default is also 8090,
-# so the unit file is self-documenting and a future change to
-# app.py's default can't silently flip the g90's port.
+# LAUNCHER_PORT=80 is the port the launcher binds. We set it
+# explicitly here so the unit file is self-documenting and a
+# future change to app.py's default can't silently flip the
+# g90's port.
+#
+# Why :80 and not :8090: on a deployed g90 box, the wifi clients
+# that join the g90's AP need to hit a captively-redirected
+# page. The shared launcher is that page (it's the daily-driver
+# UI for ham operations: flrig/js8call/wsjtx start/stop, modem73
+# audio reset, meshchat, freedvtnc2, Reticulum status). Port :80
+# is what clients land on after the captive-portal redirect, so
+# the launcher has to be on :80.
+#
+# On g90digi this is the long-standing layout; the reticulumpi
+# bootstrap now matches it (per operator 2026-09-09 15:26 MDT —
+# the launcher should be on :80, the ReticulumHF wizard on :8080,
+# node-portal wifi admin on :8081).
 #
 # The g90-test-launcher.service overrides this to 9090 (test sled).
-Environment=LAUNCHER_PORT=8090
+Environment=LAUNCHER_PORT=80
 ExecStart=/usr/bin/python3 /home/pi/shared_launcher/app.py
 Restart=always
 RestartSec=3
