@@ -1,0 +1,75 @@
+{
+  "release": "v0.6.19",
+  "release_date": "2026-09-09",
+  "image_baseline": "g90digi-2026-08-09",
+  "channel": "https://github.com/smeshT/reticulumpi.git",
+  "branch": "main",
+  "components": {
+    "launcher": {
+      "type": "github-pull",
+      "auto_update": true,
+      "source_path": "/"
+    },
+    "systemd_units": [
+      {
+        "name": "g90-shared-launcher.service",
+        "required": true
+      },
+      {
+        "name": "reticulumhf-rnsd.service",
+        "required": true
+      },
+      {
+        "name": "meshchatx.service",
+        "required": true
+      },
+      {
+        "name": "lxmd.service",
+        "required": true
+      }
+    ],
+    "pip_packages": [
+      {
+        "venv": "rns",
+        "package": "rns",
+        "min_version": "1.4.0"
+      },
+      {
+        "venv": "rns",
+        "package": "lxmf",
+        "min_version": "1.1.0"
+      },
+      {
+        "venv": "reticulum-meshchatx",
+        "package": "reticulum-meshchatx",
+        "min_version": "4.8.0"
+      }
+    ],
+    "config_files": [
+      {
+        "path": "/home/pi/.reticulum/config",
+        "required": true
+      },
+      {
+        "path": "/etc/systemd/system/meshchatx.service",
+        "required": true
+      },
+      {
+        "path": "/usr/local/bin/restart-meshchatx",
+        "required": true,
+        "mode": "0755"
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/start_pavucontrol.sh",
+        "required": true,
+        "mode": "0755"
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/stop_pavucontrol.sh",
+        "required": true,
+        "mode": "0755"
+      }
+    ]
+  },
+  "notes": "v0.6.19: BUILD.md \u2014 pre-seed DEBIAN_FRONTEND=noninteractive for apt install.\n\nCaught during operator's clean build on reticulumpi: `apt\ninstall` paused on a dpkg prompt for\n`/etc/initramfs-tools/initramfs.conf` (locally-modified by\nReticulumHF base, .deb ships an updated version). Operator\npressed N (keep current), which is the right answer for\nthis case, but a different operator might press Y and get\na working-but-different initramfs config, or pause on\nevery fresh build.\n\nThe fix: pre-set `DEBIAN_FRONTEND=noninteractive` before\nany apt install block. dpkg keeps the locally-modified\nconfig (same as N at the prompt) but never blocks the\nbuild. Also avoids any future prompts from openssh-server,\navahi-daemon, etc.\n\nThis is the right answer for all our overlay packages:\n- initramfs-tools: keep current (ReticulumHF base is fine)\n- openssh-server: keep current (we use password auth)\n- avahi-daemon: keep current (mDNS config is correct)\n\nNo code or overlay changes. Docs only."
+}

@@ -143,6 +143,22 @@ apt-cache policy zerotier-one
 
 ## Step 3a — Install overlay packages
 
+> **Pre-seed dpkg answers before any apt install** so the
+> build is fully non-interactive. ReticulumHF base images
+> sometimes carry locally-modified config files (notably
+> `/etc/initramfs-tools/initramfs.conf`) that the .deb's
+> post-install would otherwise pause to ask about. Setting
+> `DEBIAN_FRONTEND=noninteractive` tells dpkg to keep the
+> existing local version for any modified config — same as
+> pressing N at the prompt, but without blocking the build.
+>
+> ```bash
+> export DEBIAN_FRONTEND=noninteractive
+> ```
+>
+> Add this once before Block 1; it stays in effect for the
+> rest of the shell session.
+
 Install each block separately. **Do not paste all of them
 into one terminal at once** — that's how the manual
 build hit paste-mash errors.
