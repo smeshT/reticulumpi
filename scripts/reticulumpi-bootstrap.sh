@@ -219,7 +219,11 @@ pipx install reticulum-meshchatx 2>&1 | tail -3
 ok "freedvtnc2 + reticulum-meshchatx installed"
 
 # Verify all binaries on PATH
-for b in lxmd freedvtnc2 reticulum-meshchatx; do
+# pipx package names vs console_script names:
+#   - lxmf package -> lxmd binary
+#   - freedvtnc2 package -> freedvtnc2 binary
+#   - reticulum-meshchatx package -> meshchatx binary (not reticulum-meshchatx)
+for b in lxmd freedvtnc2 meshchatx; do
     command -v "$b" >/dev/null || fail "$b not on PATH after pipx install"
 done
 ok "all pipx shims on PATH"
