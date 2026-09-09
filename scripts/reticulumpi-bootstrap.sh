@@ -1,8 +1,8 @@
 #!/bin/bash
-# g90-bootstrap.sh — build a working g90 box from stock ReticulumHF.
+# reticulumpi-bootstrap.sh — build a working reticulumpi box from stock ReticulumHF.
 #
 # Run as the pi user on a freshly-flashed ReticulumHF-base Pi:
-#   bash g90-bootstrap.sh
+#   bash reticulumpi-bootstrap.sh
 #
 # The script is idempotent: re-running is safe. It does not overwrite
 # operator-tweaked configs (/etc/reticulumhf/config.env, /etc/hostapd/
@@ -440,7 +440,7 @@ fi
 
 echo
 echo "=========================================="
-echo "g90-bootstrap complete."
+echo "reticulumpi-bootstrap complete."
 echo "=========================================="
 echo
 echo "Launcher:    http://<lan-ip>:${LAUNCHER_PORT}/"
