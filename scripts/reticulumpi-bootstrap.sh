@@ -115,7 +115,8 @@ sudo apt update
 ok "apt update succeeded"
 
 # Verify zerotier is available
-if ! apt-cache policy zerotier-one | grep -q "download.zerotier.com"; then
+apt-cache policy zerotier-one > /tmp/zerotier-policy.txt 2>/dev/null
+if ! grep -m1 -q "download.zerotier.com" /tmp/zerotier-policy.txt; then
     fail "zerotier-one not available from download.zerotier.com. check apt sources."
 fi
 ok "zerotier-one available from download.zerotier.com"
@@ -384,9 +385,10 @@ LAUNCHER_STATUS=$(curl -sf "http://localhost:${LAUNCHER_PORT}/launcher-status" |
 echo "$LAUNCHER_STATUS" | head -25
 echo
 
-if echo "$LAUNCHER_STATUS" | grep -q "All components match"; then
+echo "$LAUNCHER_STATUS" > /tmp/launcher-status.txt
+if grep -m1 -q "All components match" /tmp/launcher-status.txt; then
     ok "launcher reports all components match"
-elif echo "$LAUNCHER_STATUS" | grep -q "v0\."; then
+elif grep -m1 -q "v0\." /tmp/launcher-status.txt; then
     warn "launcher is up but not all components match (see above)"
     echo
     echo "Common causes:"
@@ -403,7 +405,8 @@ echo
 echo "--- noVNC (port 6080) ---"
 NOVNC_HEADERS=$(curl -sI "http://localhost:6080/" 2>&1 || echo "FAILED")
 echo "$NOVNC_HEADERS" | head -3
-if echo "$NOVNC_HEADERS" | grep -q "WebSockify"; then
+echo "$NOVNC_HEADERS" > /tmp/novnc-headers.txt
+if grep -m1 -q "WebSockify" /tmp/novnc-headers.txt; then
     ok "noVNC web UI responding"
 else
     warn "noVNC web UI not responding on :6080"
@@ -415,7 +418,8 @@ fi
 
 phase "Phase 11: ZeroTier join (optional)"
 
-if sudo zerotier-cli status 2>&1 | grep -q "ONLINE"; then
+sudo zerotier-cli status 2>&1 > /tmp/zt-status.txt
+if grep -m1 -q "ONLINE" /tmp/zt-status.txt; then
     ok "zerotier-one is ONLINE"
     CURRENT_NWID=$(sudo zerotier-cli listnetworks 2>&1 | head -1 | awk '{print $3}')
     if [ -n "$CURRENT_NWID" ] && [ "$CURRENT_NWID" != "200" ]; then

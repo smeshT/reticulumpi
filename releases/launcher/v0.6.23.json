@@ -1,0 +1,75 @@
+{
+  "release": "v0.6.23",
+  "release_date": "2026-09-09",
+  "image_baseline": "g90digi-2026-08-09",
+  "channel": "https://github.com/smeshT/reticulumpi.git",
+  "branch": "main",
+  "components": {
+    "launcher": {
+      "type": "github-pull",
+      "auto_update": true,
+      "source_path": "/"
+    },
+    "systemd_units": [
+      {
+        "name": "g90-shared-launcher.service",
+        "required": true
+      },
+      {
+        "name": "reticulumhf-rnsd.service",
+        "required": true
+      },
+      {
+        "name": "meshchatx.service",
+        "required": true
+      },
+      {
+        "name": "lxmd.service",
+        "required": true
+      }
+    ],
+    "pip_packages": [
+      {
+        "venv": "rns",
+        "package": "rns",
+        "min_version": "1.4.0"
+      },
+      {
+        "venv": "rns",
+        "package": "lxmf",
+        "min_version": "1.1.0"
+      },
+      {
+        "venv": "reticulum-meshchatx",
+        "package": "reticulum-meshchatx",
+        "min_version": "4.8.0"
+      }
+    ],
+    "config_files": [
+      {
+        "path": "/home/pi/.reticulum/config",
+        "required": true
+      },
+      {
+        "path": "/etc/systemd/system/meshchatx.service",
+        "required": true
+      },
+      {
+        "path": "/usr/local/bin/restart-meshchatx",
+        "required": true,
+        "mode": "0755"
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/start_pavucontrol.sh",
+        "required": true,
+        "mode": "0755"
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/stop_pavucontrol.sh",
+        "required": true,
+        "mode": "0755"
+      }
+    ]
+  },
+  "notes": "v0.6.23: fix SIGPIPE-on-pipefail bug in reticulumpi-bootstrap.sh.\n\nCaught during the validation run on a fresh ReticulumHF flash.\nPhase 1's verify check (apt-cache policy zerotier-one | grep -q\n\"download.zerotier.com\") returned non-zero under the script's\n`set -euo pipefail` mode even though the policy clearly showed\nthe package as available.\n\nRoot cause: with pipefail, when `grep -q` matches and exits,\nthe producer (apt-cache) is still writing. The pipe closes,\nproducer gets SIGPIPE on next write, and the pipeline returns\n141 (128+13 = SIGPIPE). Even though grep itself succeeded,\npipefail propagates the producer's non-zero exit.\n\nFix: write the producer's output to a temp file first, then\ngrep the file. No pipe = no SIGPIPE. Applied to 5 places in\nthe script:\n  - Phase 1: apt-cache policy zerotier-one\n  - Phase 10: launcher status (All components match)\n  - Phase 10: launcher status (v0. match)\n  - Phase 10: noVNC WebSockify check\n  - Phase 11: zerotier-cli status (ONLINE)\n\nThe 3 remaining `file | grep -q \"ARM aarch64\"` patterns are\nshort-output producers and don't need the fix."
+}
