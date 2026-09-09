@@ -45,6 +45,14 @@ FREEDVTNC2_VERSION=""  # latest
 RETICULUM_MESHCHATX_VERSION=""  # latest
 
 # ============================================================================
+# PATH
+# ============================================================================
+# pi user's non-interactive shell has PATH=/usr/local/bin:/usr/bin:/bin:/usr/games
+# — no /usr/sbin or /sbin. Add them so 'command -v' finds binaries like
+# avahi-daemon, zerotier-cli, etc.
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+# ============================================================================
 # Pretty output
 # ============================================================================
 
@@ -143,16 +151,21 @@ ok "apt install block 1 (system tools, radio apps, noVNC stack) succeeded"
 # Verify: every binary resolves
 MISSING_BIN=0
 for b in git curl wget xz gpg python3 pip flrig fldigi js8call wsjtx \
-         pat-winlink direwolf avahi-daemon avahi-utils \
+         pat-winlink direwolf avahi-daemon avahi-browse \
          xterm lxterminal pulseaudio pavucontrol \
-         novnc x11vnc websockify Xvfb openbox; do
+         x11vnc websockify Xvfb openbox; do
     if ! command -v "$b" >/dev/null 2>&1; then
         warn "binary missing: $b"
         MISSING_BIN=$((MISSING_BIN + 1))
     fi
 done
-[ "$MISSING_BIN" -eq 0 ] || fail "$MISSING_BIN binaries missing after install"
-ok "all 24 binaries present"
+# novnc has no binary; check for the web UI directory
+if [ ! -d /usr/share/novnc ]; then
+    warn "directory missing: /usr/share/novnc"
+    MISSING_BIN=$((MISSING_BIN + 1))
+fi
+[ "$MISSING_BIN" -eq 0 ] || fail "$MISSING_BIN binaries/files missing after install"
+ok "all binaries present"
 
 # Block 2: zerotier
 if ! command -v zerotier-cli >/dev/null 2>&1; then

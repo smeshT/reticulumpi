@@ -1,0 +1,75 @@
+{
+  "release": "v0.6.24",
+  "release_date": "2026-09-09",
+  "image_baseline": "g90digi-2026-08-09",
+  "channel": "https://github.com/smeshT/reticulumpi.git",
+  "branch": "main",
+  "components": {
+    "launcher": {
+      "type": "github-pull",
+      "auto_update": true,
+      "source_path": "/"
+    },
+    "systemd_units": [
+      {
+        "name": "g90-shared-launcher.service",
+        "required": true
+      },
+      {
+        "name": "reticulumhf-rnsd.service",
+        "required": true
+      },
+      {
+        "name": "meshchatx.service",
+        "required": true
+      },
+      {
+        "name": "lxmd.service",
+        "required": true
+      }
+    ],
+    "pip_packages": [
+      {
+        "venv": "rns",
+        "package": "rns",
+        "min_version": "1.4.0"
+      },
+      {
+        "venv": "rns",
+        "package": "lxmf",
+        "min_version": "1.1.0"
+      },
+      {
+        "venv": "reticulum-meshchatx",
+        "package": "reticulum-meshchatx",
+        "min_version": "4.8.0"
+      }
+    ],
+    "config_files": [
+      {
+        "path": "/home/pi/.reticulum/config",
+        "required": true
+      },
+      {
+        "path": "/etc/systemd/system/meshchatx.service",
+        "required": true
+      },
+      {
+        "path": "/usr/local/bin/restart-meshchatx",
+        "required": true,
+        "mode": "0755"
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/start_pavucontrol.sh",
+        "required": true,
+        "mode": "0755"
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/stop_pavucontrol.sh",
+        "required": true,
+        "mode": "0755"
+      }
+    ]
+  },
+  "notes": "v0.6.24: fix verify-gate bugs in reticulumpi-bootstrap.sh.\n\nCaught during the validation run on a fresh ReticulumHF flash.\nPhase 2's verify gate (after the big apt install block) reported\n3 binaries missing:\n  - avahi-daemon: binary IS at /usr/sbin/avahi-daemon, but\n    pi user's non-interactive PATH doesn't include /usr/sbin.\n  - avahi-utils: no 'avahi-utils' binary exists; the package\n    provides 'avahi-browse', 'avahi-publish', etc.\n  - novnc: meta-package providing only docs, no binary. The\n    web UI is at /usr/share/novnc/.\n\nFixes:\n1. Add /usr/local/sbin, /usr/sbin, /sbin to PATH at the top of\n   the script so 'command -v' finds binaries in those dirs.\n2. Change verify gate:\n   - 'avahi-utils' -> 'avahi-browse' (an actual binary the\n     package provides).\n   - Remove 'novnc' from the binary list; add a check for\n     the existence of /usr/share/novnc/ directory instead."
+}
