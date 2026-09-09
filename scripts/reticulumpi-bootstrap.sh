@@ -48,9 +48,9 @@ RETICULUM_MESHCHATX_VERSION=""  # latest
 # PATH
 # ============================================================================
 # pi user's non-interactive shell has PATH=/usr/local/bin:/usr/bin:/bin:/usr/games
-# — no /usr/sbin or /sbin. Add them so 'command -v' finds binaries like
-# avahi-daemon, zerotier-cli, etc.
-export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+# — no /usr/sbin, /sbin, or /home/pi/.local/bin. Add them so 'command -v'
+# finds binaries like avahi-daemon, zerotier-cli, AND pipx shims like lxmd.
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/home/pi/.local/bin"
 
 # ============================================================================
 # Pretty output
