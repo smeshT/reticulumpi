@@ -1,0 +1,75 @@
+{
+  "release": "v0.6.22",
+  "release_date": "2026-09-09",
+  "image_baseline": "g90digi-2026-08-09",
+  "channel": "https://github.com/smeshT/reticulumpi.git",
+  "branch": "main",
+  "components": {
+    "launcher": {
+      "type": "github-pull",
+      "auto_update": true,
+      "source_path": "/"
+    },
+    "systemd_units": [
+      {
+        "name": "g90-shared-launcher.service",
+        "required": true
+      },
+      {
+        "name": "reticulumhf-rnsd.service",
+        "required": true
+      },
+      {
+        "name": "meshchatx.service",
+        "required": true
+      },
+      {
+        "name": "lxmd.service",
+        "required": true
+      }
+    ],
+    "pip_packages": [
+      {
+        "venv": "rns",
+        "package": "rns",
+        "min_version": "1.4.0"
+      },
+      {
+        "venv": "rns",
+        "package": "lxmf",
+        "min_version": "1.1.0"
+      },
+      {
+        "venv": "reticulum-meshchatx",
+        "package": "reticulum-meshchatx",
+        "min_version": "4.8.0"
+      }
+    ],
+    "config_files": [
+      {
+        "path": "/home/pi/.reticulum/config",
+        "required": true
+      },
+      {
+        "path": "/etc/systemd/system/meshchatx.service",
+        "required": true
+      },
+      {
+        "path": "/usr/local/bin/restart-meshchatx",
+        "required": true,
+        "mode": "0755"
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/start_pavucontrol.sh",
+        "required": true,
+        "mode": "0755"
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/stop_pavucontrol.sh",
+        "required": true,
+        "mode": "0755"
+      }
+    ]
+  },
+  "notes": "v0.6.22: tag the bootstrap script under v0.6.22.\n\nThe reticulumpi-bootstrap.sh was added in commit d7a2728\n(rename) which is AFTER the v0.6.21 tag (18b203b). Trying\nto pull the script via\n`raw.githubusercontent.com/smeshT/reticulumpi/v0.6.21/scripts/reticulumpi-bootstrap.sh`\nreturns 404 because the file doesn't exist at that tag.\n\nThe v0.6.21 tag is on the bootstrap commit but the file was\nnamed g90-bootstrap.sh there; the rename to reticulumpi-bootstrap.sh\nhappened in a follow-up commit. So the v0.6.21 tag references\na file at `scripts/g90-bootstrap.sh` (now deleted by the rename).\n\nCut a new tag v0.6.22 that points to the rename commit so\noperators pulling the script by tag get the right filename."
+}
