@@ -309,6 +309,14 @@ phase "Phase 7: overlay (config files + systemd units)"
 
 # Config files
 sudo cp g90-image/config/reticulumhf-config.env /etc/reticulumhf/config.env
+
+# Mark setup as complete. The ReticulumHF wizard (port 80) creates this
+# file when its setup flow finishes. If the operator prefers the
+# bootstrap's defaults and wants freedvtnc2.service to actually start
+# (its systemd unit has ConditionPathExists=!file), we create the file
+# here. Delete it to re-run the wizard:
+#   sudo rm /etc/reticulumhf/.setup_complete
+sudo touch /etc/reticulumhf/.setup_complete
 sudo cp g90-image/config/hostapd.conf /etc/hostapd/hostapd.conf
 sudo cp g90-image/config/pat-config.json /home/pi/.config/pat/config.json
 

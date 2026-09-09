@@ -1,0 +1,75 @@
+{
+  "release": "v0.6.35",
+  "release_date": "2026-09-09",
+  "image_baseline": "g90digi-2026-08-09",
+  "channel": "https://github.com/smeshT/reticulumpi.git",
+  "branch": "main",
+  "components": {
+    "launcher": {
+      "type": "github-pull",
+      "auto_update": true,
+      "source_path": "/"
+    },
+    "systemd_units": [
+      {
+        "name": "g90-shared-launcher.service",
+        "required": true
+      },
+      {
+        "name": "reticulumhf-rnsd.service",
+        "required": true
+      },
+      {
+        "name": "meshchatx.service",
+        "required": true
+      },
+      {
+        "name": "lxmd.service",
+        "required": true
+      }
+    ],
+    "pip_packages": [
+      {
+        "venv": "rns",
+        "package": "rns",
+        "min_version": "1.4.0"
+      },
+      {
+        "venv": "rns",
+        "package": "lxmf",
+        "min_version": "1.1.0"
+      },
+      {
+        "venv": "reticulum-meshchatx",
+        "package": "reticulum-meshchatx",
+        "min_version": "4.8.0"
+      }
+    ],
+    "config_files": [
+      {
+        "path": "/home/pi/.reticulum/config",
+        "required": true
+      },
+      {
+        "path": "/etc/systemd/system/meshchatx.service",
+        "required": true
+      },
+      {
+        "path": "/usr/local/bin/restart-meshchatx",
+        "required": true,
+        "mode": "0755"
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/start_pavucontrol.sh",
+        "required": true,
+        "mode": "0755"
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/stop_pavucontrol.sh",
+        "required": true,
+        "mode": "0755"
+      }
+    ]
+  },
+  "notes": "v0.6.35: fix ReticulumHF launcher link + bootstrap creates .setup_complete.\n\nTwo issues on a fresh image:\n\n1. The launcher's \"ReticulumHF\" link at the bottom of the page\n   pointed to http://<host>:8080/status \u2014 but :8080 is not\n   listening on a fresh reticulumpi (only :80 has the wizard).\n   Clicking the link was a silent no-op.\n\n2. freedvtnc2.service has ConditionPathExists=!/etc/reticulumhf/\n   .setup_complete \u2014 without that file, the unit is always\n   skipped with \"unmet condition check\". The ReticulumHF wizard\n   creates the file when its setup flow finishes, but the\n   bootstrap never runs the wizard. So even with the right\n   AUDIO_CARD, freedvtnc2.service never starts.\n\nFix:\n- Launcher template: ReticulumHF link :8080/status \u2192 :80/ (the\n  wizard's setup page)\n- Bootstrap: sudo touch /etc/reticulumhf/.setup_complete after\n  copying config.env, so freedvtnc2.service starts with the\n  bootstrap's defaults. Operator can `sudo rm ! .setup_complete`\n  to re-run the wizard.\n\nEffect: clicking the ReticulumHF link now opens the wizard\nwhere the operator can re-pick their radio (which sets\nAUDIO_CARD correctly). After wizard completion,\nfreedvtnc2.service starts. Without the wizard, freedvtnc2\nalso starts using the bootstrap's defaults."
+}
