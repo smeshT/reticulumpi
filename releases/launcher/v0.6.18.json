@@ -1,0 +1,75 @@
+{
+  "release": "v0.6.18",
+  "release_date": "2026-09-09",
+  "image_baseline": "g90digi-2026-08-09",
+  "channel": "https://github.com/smeshT/reticulumpi.git",
+  "branch": "main",
+  "components": {
+    "launcher": {
+      "type": "github-pull",
+      "auto_update": true,
+      "source_path": "/"
+    },
+    "systemd_units": [
+      {
+        "name": "g90-shared-launcher.service",
+        "required": true
+      },
+      {
+        "name": "reticulumhf-rnsd.service",
+        "required": true
+      },
+      {
+        "name": "meshchatx.service",
+        "required": true
+      },
+      {
+        "name": "lxmd.service",
+        "required": true
+      }
+    ],
+    "pip_packages": [
+      {
+        "venv": "rns",
+        "package": "rns",
+        "min_version": "1.4.0"
+      },
+      {
+        "venv": "rns",
+        "package": "lxmf",
+        "min_version": "1.1.0"
+      },
+      {
+        "venv": "reticulum-meshchatx",
+        "package": "reticulum-meshchatx",
+        "min_version": "4.8.0"
+      }
+    ],
+    "config_files": [
+      {
+        "path": "/home/pi/.reticulum/config",
+        "required": true
+      },
+      {
+        "path": "/etc/systemd/system/meshchatx.service",
+        "required": true
+      },
+      {
+        "path": "/usr/local/bin/restart-meshchatx",
+        "required": true,
+        "mode": "0755"
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/start_pavucontrol.sh",
+        "required": true,
+        "mode": "0755"
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/stop_pavucontrol.sh",
+        "required": true,
+        "mode": "0755"
+      }
+    ]
+  },
+  "notes": "v0.6.18: BUILD.md verification gates + non-default-repo install paths.\n\nHardening pass after the operator's first clean build on\nthe new reticulumpi Pi surfaced 6+ recipe gaps. Each gap\ndelayed the build by 5-10 minutes because the failure\nsurfaced several steps AFTER the actual misstep. v0.6.18\nadds verification gates right after every install/cp/enable\nblock so failures surface immediately.\n\nSnags addressed (in the order they were hit):\n\n1. `apt install zerotier-one` failed silently \u2014 the package\n   isn't in the default bookworm repos. Added a Step 3a\n   that adds the official download.zerotier.com apt source\n   + signed-by key. Without this, `apt install zerotier-one`\n   returns \"E: Unable to locate package\" and Step 6 fails\n   with \"Unit file does not exist\" two minutes later.\n\n2. `apt install pat` failed silently \u2014 same pattern. The pat\n   package is in the default bookworm repos, so no new\n   source needed; just verification.\n\n3. After the .deb install for either package, dpkg's\n   post-install runs `systemctl start` which can fail\n   silently. Added a `dpkg --configure -a` step after each\n   non-default-repo install.\n\n4. `/lib/systemd/system/zerotier-one.service` (upstream)\n   vs `/etc/systemd/system/zerotier-one.service` (manual\n   write). Documented the precedence and the right way to\n   handle it (delete the manual file once the upstream one\n   is on disk).\n\n5. /launcher-status 404 after git checkout. The systemd\n   restart-after-checkout step was missing. Added explicit\n   `systemctl restart g90-shared-launcher.service` after\n   the working-tree pin.\n\n6. LAUNCHER_DIR NameError at runtime when the launcher was\n   running stale code. Same fix as #5 \u2014 explicit restart\n   after the working tree change.\n\n7. The 30+ line apt install block was a single heredoc that\n   paste-mashed into one line, causing partial execution.\n   Split into per-package blocks with comment headers so\n   the operator can paste each independently.\n\n8. The `start_my_launcher.sh` filename reference from an\n   older BUILD.md version is misleading. Renamed the helper\n   to be unambiguous (it's still `start_my_launcher.sh` at\n   the repo root, just documented in a \"dev helper\" callout\n   so it doesn't get confused with the systemd unit name).\n\n9. Added a Step 7.5 \"## Verification\" table that lists every\n   service + binary + file the recipe should produce, and\n   what command to verify it. Operator runs the table\n   bottom-up before declaring the build done.\n\n10. The modem73 install (v0.6.15) is correct, but the\n    `apt-cache policy modem73` check is now part of the\n    verification table for consistency.\n\n11. Removed references to patmenu2 entirely (was v0.6.17's\n    commented-out \"OPTIONAL\" block). Cleaner to not have\n    dead text in the recipe.\n\nNo code or overlay changes. Docs only. Captured image\nstate will be the same as v0.6.17's overlay; only the\nrecipe path to get there is hardened.\n\nThis release does NOT auto-deploy to the existing fleet\n(g90digi, g90test) per the change-order rule. The operator\nwill validate the recipe against the new reticulumpi clean\nbuild first, then I'll push to g90test + g90digi on the\nnext session."
+}
