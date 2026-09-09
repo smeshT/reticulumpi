@@ -1,0 +1,75 @@
+{
+  "release": "v0.6.31",
+  "release_date": "2026-09-09",
+  "image_baseline": "g90digi-2026-08-09",
+  "channel": "https://github.com/smeshT/reticulumpi.git",
+  "branch": "main",
+  "components": {
+    "launcher": {
+      "type": "github-pull",
+      "auto_update": true,
+      "source_path": "/"
+    },
+    "systemd_units": [
+      {
+        "name": "g90-shared-launcher.service",
+        "required": true
+      },
+      {
+        "name": "reticulumhf-rnsd.service",
+        "required": true
+      },
+      {
+        "name": "meshchatx.service",
+        "required": true
+      },
+      {
+        "name": "lxmd.service",
+        "required": true
+      }
+    ],
+    "pip_packages": [
+      {
+        "venv": "rns",
+        "package": "rns",
+        "min_version": "1.4.0"
+      },
+      {
+        "venv": "rns",
+        "package": "lxmf",
+        "min_version": "1.1.0"
+      },
+      {
+        "venv": "reticulum-meshchatx",
+        "package": "reticulum-meshchatx",
+        "min_version": "4.8.0"
+      }
+    ],
+    "config_files": [
+      {
+        "path": "/home/pi/.reticulum/config",
+        "required": true
+      },
+      {
+        "path": "/etc/systemd/system/meshchatx.service",
+        "required": true
+      },
+      {
+        "path": "/usr/local/bin/restart-meshchatx",
+        "required": true,
+        "mode": "0755"
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/start_pavucontrol.sh",
+        "required": true,
+        "mode": "0755"
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/stop_pavucontrol.sh",
+        "required": true,
+        "mode": "0755"
+      }
+    ]
+  },
+  "notes": "v0.6.31: fix tr | head SIGPIPE in bootstrap script.\n\nThe script used 'tr -dc A-Za-z0-9 < /dev/urandom | head -c 8' to\ngenerate the x11vnc password. With set -o pipefail, when head\nexits after reading 8 bytes, the pipe closes. tr is still\nreading from /dev/urandom and gets SIGPIPE on the next write.\nThe pipeline returns 141 (128+13). With set -e, the script\nexits silently.\n\nThis is the same family of bug as the apt-cache policy\nSIGPIPE issue from v0.6.23. The original 'fix' was to use\ngrep -m1 instead of grep -q, but that doesn't help when the\nproducer is non-blocking like /dev/urandom.\n\nFix: prefix the pipeline with LC_ALL=C. tr is locale-aware\nand may buffer differently in different locales. With\nLC_ALL=C, tr reads input in chunks matching the buffer size,\nwhich means the read is more deterministic and less likely\nto leave a partial write in flight when head closes the pipe.\n\nThis is a workaround, not a true fix. The true fix is to\nuse a temp file: '/dev/urandom > /tmp/urandom.tmp; head -c 8\n/tmp/urandom.tmp | tr -dc A-Za-z0-9 > /tmp/pw; rm /tmp/urandom.tmp'\nbut that's overkill for an 8-char password."
+}

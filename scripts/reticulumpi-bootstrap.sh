@@ -342,7 +342,10 @@ ok "start-novnc-session script installed"
 # file needs to be readable by pi (chown pi:pi + chmod 600).
 sudo mkdir -p /etc/x11vnc
 # Generate a random 8-char password (VNC DES auth max is 8 chars)
-NOVNC_PASSWORD=$(tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 8)
+# Use head -c 8 to limit output (avoids reading urandom forever), then
+# filter to alphanumeric. head -c 8 won't SIGPIPE because urandom
+# is non-blocking; the pipeline just terminates cleanly.
+NOVNC_PASSWORD=$(LC_ALL=C tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 8)
 sudo x11vnc -storepasswd "$NOVNC_PASSWORD" /etc/x11vnc/passwd
 sudo chmod 600 /etc/x11vnc/passwd
 sudo chown pi:pi /etc/x11vnc/passwd
