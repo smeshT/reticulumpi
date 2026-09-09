@@ -61,5 +61,25 @@ fi
 # from the shell's job table; it does NOT make the child immune
 # to session-leader SIGHUP. The other working start_*.sh scripts
 # already use nohup; this one was missed in that audit.)
+#
+# Pulseaudio must be running before pavucontrol starts or the
+# GUI spins forever waiting for a connection that never comes.
+# On a fresh build, pulseaudio is installed but neither the
+# system service nor the user service is enabled (the system
+# service isn't shipped by Debian; the user service requires
+# loginctl enable-linger, which the bootstrap doesn't do). We
+# start pulseaudio on demand here, which works whether or not
+# the user service is enabled. pulseaudio in this mode runs
+# as the pi user and listens on /run/user/1000/pulse/.
+# Idempotent: if pulseaudio is already running, this exits
+# immediately. Discovered 2026-09-09 16:15 MDT when the
+# launcher's "Start pavucontrol" button spun forever on a
+# freshly-flashed box.
+if ! pgrep -x pulseaudio >/dev/null 2>&1; then
+    nohup pulseaudio --exit-idle-time=-1 >/tmp/pavucontrol.log 2>&1 &
+    # Brief sleep so pulseaudio has time to create the socket
+    # before pavucontrol tries to connect.
+    sleep 1
+fi
 nohup pavucontrol >/tmp/pavucontrol.log 2>&1 &
 exit 0

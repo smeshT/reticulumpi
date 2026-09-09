@@ -1,0 +1,75 @@
+{
+  "release": "v0.6.43",
+  "release_date": "2026-09-09",
+  "image_baseline": "g90digi-2026-08-09",
+  "channel": "https://github.com/smeshT/reticulumpi.git",
+  "branch": "main",
+  "components": {
+    "launcher": {
+      "type": "github-pull",
+      "auto_update": true,
+      "source_path": "/"
+    },
+    "systemd_units": [
+      {
+        "name": "g90-shared-launcher.service",
+        "required": true
+      },
+      {
+        "name": "reticulumhf-rnsd.service",
+        "required": true
+      },
+      {
+        "name": "meshchatx.service",
+        "required": true
+      },
+      {
+        "name": "lxmd.service",
+        "required": true
+      }
+    ],
+    "pip_packages": [
+      {
+        "venv": "rns",
+        "package": "rns",
+        "min_version": "1.4.0"
+      },
+      {
+        "venv": "rns",
+        "package": "lxmf",
+        "min_version": "1.1.0"
+      },
+      {
+        "venv": "reticulum-meshchatx",
+        "package": "reticulum-meshchatx",
+        "min_version": "4.8.0"
+      }
+    ],
+    "config_files": [
+      {
+        "path": "/home/pi/.reticulum/config",
+        "required": true
+      },
+      {
+        "path": "/etc/systemd/system/meshchatx.service",
+        "required": true
+      },
+      {
+        "path": "/usr/local/bin/restart-meshchatx",
+        "required": true,
+        "mode": "0755"
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/start_pavucontrol.sh",
+        "required": true,
+        "mode": "0755"
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/stop_pavucontrol.sh",
+        "required": true,
+        "mode": "0755"
+      }
+    ]
+  },
+  "notes": "v0.6.43: start_pavucontrol.sh now starts pulseaudio on demand.\n\nOperator reported 2026-09-09 16:15 MDT: clicking the\n\"Start pavucontrol\" button on the launcher opens a window\nthat spins forever \u2014 it never connects to a pulseaudio\nserver.\n\nRoot cause: pulseaudio is installed (the apt package is\non the box) but no service unit is enabled. Debian ships\npulseaudio.service in /usr/lib/systemd/user/ (a per-user\nservice), not in /lib/systemd/system/. The user's\npulseaudio.service would start on graphical login, but\nthe bootstrap doesn't enable user services (no\nloginctl enable-linger). So pavucontrol launches, can't\nfind a pulseaudio socket in /run/user/1000/pulse/, and\nspins forever.\n\nFix: start_pavucontrol.sh now starts pulseaudio on demand\nbefore launching pavucontrol, with the --exit-idle-time=-1\nflag so pulseaudio stays alive even with no active clients.\nIdempotent: pgrep checks if pulseaudio is already running\nand skips if so. The pulseaudio and pavucontrol processes\nare both nohup'd so they survive the script's exit (same\nSIGHUP fix as v0.6.40 for modem73_loopback).\n\nEffect: clicking the Start pavucontrol button on a fresh\nflash now opens the pavucontrol GUI connected to a\nworking pulseaudio server."
+}
