@@ -1,0 +1,75 @@
+{
+  "release": "v0.6.34",
+  "release_date": "2026-09-09",
+  "image_baseline": "g90digi-2026-08-09",
+  "channel": "https://github.com/smeshT/reticulumpi.git",
+  "branch": "main",
+  "components": {
+    "launcher": {
+      "type": "github-pull",
+      "auto_update": true,
+      "source_path": "/"
+    },
+    "systemd_units": [
+      {
+        "name": "g90-shared-launcher.service",
+        "required": true
+      },
+      {
+        "name": "reticulumhf-rnsd.service",
+        "required": true
+      },
+      {
+        "name": "meshchatx.service",
+        "required": true
+      },
+      {
+        "name": "lxmd.service",
+        "required": true
+      }
+    ],
+    "pip_packages": [
+      {
+        "venv": "rns",
+        "package": "rns",
+        "min_version": "1.4.0"
+      },
+      {
+        "venv": "rns",
+        "package": "lxmf",
+        "min_version": "1.1.0"
+      },
+      {
+        "venv": "reticulum-meshchatx",
+        "package": "reticulum-meshchatx",
+        "min_version": "4.8.0"
+      }
+    ],
+    "config_files": [
+      {
+        "path": "/home/pi/.reticulum/config",
+        "required": true
+      },
+      {
+        "path": "/etc/systemd/system/meshchatx.service",
+        "required": true
+      },
+      {
+        "path": "/usr/local/bin/restart-meshchatx",
+        "required": true,
+        "mode": "0755"
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/start_pavucontrol.sh",
+        "required": true,
+        "mode": "0755"
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/stop_pavucontrol.sh",
+        "required": true,
+        "mode": "0755"
+      }
+    ]
+  },
+  "notes": "v0.6.34: disable noVNC password (LAN-only security model).\n\nProblem (operator 2026-09-09 15:14 MDT): the random 8-char\nnoVNC password the bootstrap generated kept breaking the\noperator's browser-stored password \u2014 every time the bootstrap\nre-ran (e.g. to fix a different bug), a new password was\nwritten to /etc/x11vnc/passwd, and the noVNC tab would\nsilently start rejecting the old password.\n\nThe password also provided no real security: anyone with LAN\naccess to the Pi can already get a root shell via the wifi\nclient portal or a connected keyboard. The hostapd WPA2\npassword is the only network-level auth that matters.\n\nFix:\n1. start-novnc-session: removed -rfbauth /etc/x11vnc/passwd\n   from the x11vnc command. x11vnc now runs without a\n   password, so the noVNC tab is open.\n2. reticulumpi-bootstrap.sh: removed the x11vnc password\n   generation block (the tr | head temp file workaround is\n   now a no-op comment).\n3. Final banner: no longer prints a password; instead notes\n   \"(no password \u2014 LAN-only)\".\n\nIf the operator wants a VNC password back later, uncomment\nthe block in the bootstrap. The \"Reset Audio\" button on the\nlauncher is unchanged."
+}

@@ -349,23 +349,24 @@ cp g90-image/config/start-novnc-session /home/pi/.local/bin/start-novnc-session
 chmod +x /home/pi/.local/bin/start-novnc-session
 ok "start-novnc-session script installed"
 
-# x11vnc password file (random 8 chars)
-# The /etc/x11vnc/ directory is owned by root with 755, so x11vnc -storepasswd
-# needs to run as root to write to it. x11vnc.service runs as pi, so the
-# file needs to be readable by pi (chown pi:pi + chmod 600).
-sudo mkdir -p /etc/x11vnc
-# Generate a random 8-char password (VNC DES auth max is 8 chars)
-# Generate a random 8-char password without a pipe (avoids SIGPIPE
-# on set -o pipefail). Read 64 bytes from /dev/urandom into a
-# temp file (head -c 64 returns cleanly), then tr the file to
-# filter to alphanumeric, then take the first 8 bytes.
-head -c 64 /dev/urandom > /tmp/.novnc-pw.buf
-NOVNC_PASSWORD=$(tr -dc 'A-Za-z0-9' < /tmp/.novnc-pw.buf | head -c 8)
-rm -f /tmp/.novnc-pw.buf
-sudo x11vnc -storepasswd "$NOVNC_PASSWORD" /etc/x11vnc/passwd
-sudo chmod 600 /etc/x11vnc/passwd
-sudo chown pi:pi /etc/x11vnc/passwd
-ok "x11vnc password file created (8 random chars)"
+# noVNC password: NO LONGER SET (per operator 2026-09-09 15:14 MDT).
+# The random 8-char password the bootstrap used to generate was hostile
+# to the operator's browser-stored password (every re-run broke login),
+# and provided no real security — anyone with LAN access can already
+# pwn the Pi. The start-novnc-session script runs x11vnc WITHOUT
+# -rfbauth, so noVNC is open. The hostapd WPA2 password on the wifi
+# client portal is the only network-level auth that matters.
+#
+# If you want a VNC password back, uncomment the block below.
+#
+# sudo mkdir -p /etc/x11vnc
+# head -c 64 /dev/urandom > /tmp/.novnc-pw.buf
+# NOVNC_PASSWORD=*** -dc 'A-Za-z0-9' < /tmp/.novnc-pw.buf | head -c 8)
+# sudo x11vnc -storepasswd "$NOVNC_PASSWORD" /etc/x11vnc/passwd
+# sudo chmod 600 /etc/x11vnc/passwd
+# sudo chown pi:pi /etc/x11vnc/passwd
+# ok "x11vnc password file created (8 random chars: $NOVNC_PASSWORD)"
+ok "noVNC password disabled (LAN-only security model)"
 
 # ============================================================================
 # Phase 8: prepare-* helpers
@@ -503,8 +504,7 @@ echo "=========================================="
 echo
 echo "Launcher:    http://<lan-ip>:${LAUNCHER_PORT}/"
 echo "             http://<lan-ip>:${LAUNCHER_PORT}/launcher-status"
-echo "noVNC tab:   http://<lan-ip>:6080/vnc.html"
-echo "             password: ${NOVNC_PASSWORD}"
+echo "noVNC tab:   http://<lan-ip>:6080/vnc.html   (no password — LAN-only)"
 echo
 echo "Overlay version: ${LATEST_TAG} (${PINNED_SHA})"
 echo
@@ -516,6 +516,6 @@ echo "  3. Edit ~/.config/pat/config.json — set your callsign (NOT N0CALL)."
 echo "  4. Reboot: sudo reboot"
 echo "  5. Verify from your laptop:"
 echo "       http://<lan-ip>:${LAUNCHER_PORT}/launcher-status   (should show 'All components match')"
-echo "       http://<lan-ip>:6080/vnc.html                     (login: ${NOVNC_PASSWORD})"
+echo "       http://<lan-ip>:6080/vnc.html                     (no password)"
 echo
 echo "If anything is broken, see BUILD.md Step 7's verification table."
