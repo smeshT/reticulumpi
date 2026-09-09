@@ -1,0 +1,75 @@
+{
+  "release": "v0.6.25",
+  "release_date": "2026-09-09",
+  "image_baseline": "g90digi-2026-08-09",
+  "channel": "https://github.com/smeshT/reticulumpi.git",
+  "branch": "main",
+  "components": {
+    "launcher": {
+      "type": "github-pull",
+      "auto_update": true,
+      "source_path": "/"
+    },
+    "systemd_units": [
+      {
+        "name": "g90-shared-launcher.service",
+        "required": true
+      },
+      {
+        "name": "reticulumhf-rnsd.service",
+        "required": true
+      },
+      {
+        "name": "meshchatx.service",
+        "required": true
+      },
+      {
+        "name": "lxmd.service",
+        "required": true
+      }
+    ],
+    "pip_packages": [
+      {
+        "venv": "rns",
+        "package": "rns",
+        "min_version": "1.4.0"
+      },
+      {
+        "venv": "rns",
+        "package": "lxmf",
+        "min_version": "1.1.0"
+      },
+      {
+        "venv": "reticulum-meshchatx",
+        "package": "reticulum-meshchatx",
+        "min_version": "4.8.0"
+      }
+    ],
+    "config_files": [
+      {
+        "path": "/home/pi/.reticulum/config",
+        "required": true
+      },
+      {
+        "path": "/etc/systemd/system/meshchatx.service",
+        "required": true
+      },
+      {
+        "path": "/usr/local/bin/restart-meshchatx",
+        "required": true,
+        "mode": "0755"
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/start_pavucontrol.sh",
+        "required": true,
+        "mode": "0755"
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/stop_pavucontrol.sh",
+        "required": true,
+        "mode": "0755"
+      }
+    ]
+  },
+  "notes": "v0.6.25: fix lxmf module name in reticulumpi-bootstrap.sh verify.\n\nThe lxmf PyPI package installs with module name 'LXMF' (uppercase),\nnot 'lxmf' (lowercase). The script's verify check used\n'import lxmf' which fails with ModuleNotFoundError even though\nlxmf is correctly installed at /home/pi/.local/pipx/venvs/rns/\nlib/python3.11/site-packages/LXMF/.\n\nFix: change the import to 'import LXMF' (uppercase). The package\nname on PyPI is still 'lxmf' (so pipx inject rns lxmf works),\nbut the Python module is uppercase.\n\nSame pattern: the launcher's component check (collect-box-status.sh)\nuses `python -m pip list` which reports the package name, not the\nmodule name, so it's not affected by this. Only the script's\nverify check needed the fix."
+}

@@ -200,8 +200,10 @@ ok "rns ${RNS_VERSION} installed"
 # `import lxmf` from the rns venv, not a separate lxmf venv. So we
 # need lxmf in /home/pi/.local/pipx/venvs/rns/lib/.../site-packages/.
 pipx inject rns lxmf 2>&1 | tail -3
-/home/pi/.local/pipx/venvs/rns/bin/python -c "import lxmf; print(f'lxmf {lxmf.__version__}')" \
-    || fail "lxmf not in rns venv"
+# lxmf installs as package 'lxmf' but the Python module is 'LXMF' (uppercase)
+# — see site-packages/LXMF in the rns venv. Import the right name.
+/home/pi/.local/pipx/venvs/rns/bin/python -c "import LXMF; print(f'lxmf {LXMF.__version__}')" \
+    || fail "lxmf not in rns venv (pipx inject rns lxmf may have failed)"
 ok "lxmf injected into rns venv"
 
 # Other venvs (separate, isolated)
