@@ -1,0 +1,75 @@
+{
+  "release": "v0.6.15",
+  "release_date": "2026-09-08",
+  "image_baseline": "g90digi-2026-08-09",
+  "channel": "https://github.com/smeshT/reticulumpi.git",
+  "branch": "main",
+  "components": {
+    "launcher": {
+      "type": "github-pull",
+      "auto_update": true,
+      "source_path": "/"
+    },
+    "systemd_units": [
+      {
+        "name": "g90-shared-launcher.service",
+        "required": true
+      },
+      {
+        "name": "reticulumhf-rnsd.service",
+        "required": true
+      },
+      {
+        "name": "meshchatx.service",
+        "required": true
+      },
+      {
+        "name": "lxmd.service",
+        "required": true
+      }
+    ],
+    "pip_packages": [
+      {
+        "venv": "rns",
+        "package": "rns",
+        "min_version": "1.4.0"
+      },
+      {
+        "venv": "rns",
+        "package": "lxmf",
+        "min_version": "1.1.0"
+      },
+      {
+        "venv": "reticulum-meshchatx",
+        "package": "reticulum-meshchatx",
+        "min_version": "4.8.0"
+      }
+    ],
+    "config_files": [
+      {
+        "path": "/home/pi/.reticulum/config",
+        "required": true
+      },
+      {
+        "path": "/etc/systemd/system/meshchatx.service",
+        "required": true
+      },
+      {
+        "path": "/usr/local/bin/restart-meshchatx",
+        "required": true,
+        "mode": "0755"
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/start_pavucontrol.sh",
+        "required": true,
+        "mode": "0755"
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/stop_pavucontrol.sh",
+        "required": true,
+        "mode": "0755"
+      }
+    ]
+  },
+  "notes": "v0.6.15: correct modem73 install method (github releases, not pipx).\n\nThe v0.6.14 release was wrong: it said `pipx install modem73` and\na `~/.local/bin \u2192 /usr/bin/modem73` symlink. That's incorrect.\nmodem73 ships as native `.deb`/`.rpm` binaries on\nhttps://github.com/RFnexus/modem73/releases \u2014 there is no PyPI\npackage. The launcher scripts assume `/usr/bin/modem73` exists\nwith the v2.x TUI flag set.\n\nThree docs fixed:\n- BUILD.md Step 3: replaced `pipx install modem73` + symlink with\n  `wget` of the pinned github release .deb + `sudo apt install -y\n  /tmp/<deb>`. Pin to `MODEM73_VERSION=\"2.4.0\"` for reproducibility.\n- g90-image/IMAGE-PACKAGES.md: replaced the \"modem73 is pipx\" entry\n  with a new \"Native packages (github releases, NOT pipx)\" section.\n  Existing \"Pipx venvs\" section now contains only lxmf and\n  reticulum-meshchatx (the actual pipx installs).\n- docs/MODEM73.md \"Install\" section: rewritten with the correct\n  github-releases install procedure. Removed the \"Modem73 is on\n  PyPI\" claim. Added asset-name table for Pi 4 (armhf) vs Pi 5\n  (arm64) vs Pi 4 in legacy 32-bit mode. Added the udev rule note.\n\nVerified on g90digi: `/usr/bin/modem73` MD5 c0a90f51fa4094658017acf691b70bfe,\nbuild banner \"MODEM73 build Aug 29 2026 14:12:50\" matches the\nv2.4.0 github release publish time (2026-08-29T14:14:44Z). So the\nalready-installed modem73 on g90digi came from this release method,\nnot from pipx. The v0.6.14 recipe was wrong.\n\nAsset note: the v2.4.0 release ships .debs for debian-12 (Raspberry\nPi OS Bookworm), debian-13, ubuntu-22.04, ubuntu-24.04, and armbian.\nPick the OS-major-version that matches. Raspberry Pi OS Bookworm\n(bookworm = Debian 12) \u2192 debian-12_arm64.deb for Pi 5 / Pi 4 64-bit,\ndebian-12_armhf.deb for Pi 4 in legacy 32-bit mode."
+}

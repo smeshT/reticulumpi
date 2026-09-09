@@ -55,7 +55,6 @@ overlay recipe.
 |---|---|---|
 | `lxmf` | Provides the `lxmd` daemon (LXMF propagation node) and the `lxmf` Python library used by the launcher's lxmf integration. Without it, `lxmd.service` won't start and the manifest's component check flags lxmd as missing. | 2026-09-08 |
 | `reticulum-meshchatx` | The v2 of `reticulum-meshchat` with a different default port (8000) and faster announce cadence. The launcher wires meshchatx on :8000 (was :9100 before v0.6.6 swapped to meshchatx). The legacy `reticulum-meshchat` package is retired. | 2026-09-08 |
-| `modem73` | OFDM software modem for HF/VHF/UHF. Provides the `modem73` binary that the launcher's Modem73 Config TUI row spawns (via `start_modem73_tui.sh`, which opens `lxterminal --title=modem73`) and that the loopback instance runs headlessly (`start_modem73_loopback.sh` → `/usr/bin/modem73 --headless --config ~/.config/modem73/settings`). Without it, the Modem73 Config TUI row errors with "command not found" and the loopback path is broken. See `docs/MODEM73.md` for the full design and config. Install: `pipx install modem73 && sudo ln -sf /home/pi/.local/bin/modem73 /usr/bin/modem73` (the launcher scripts reference `/usr/bin/modem73` for consistency with the apt-installed digimode apps). | 2026-09-08 |
 
 > **Why a separate section from apt?** The apt packages above
 > come from the Debian package index; the pipx venvs are
@@ -63,6 +62,16 @@ overlay recipe.
 > don't break `freedvtnc2`, etc. The launcher's manifest
 > (`releases/launcher/*.json` `components.pip_packages`)
 > tracks these separately from `components.required_packages`.
+
+## Native packages (github releases, NOT pipx)
+
+These ship as native binaries on GitHub release pages, not on
+PyPI. We download the .deb (or .rpm) directly, pin to a
+specific version for reproducibility, and `apt install` it.
+
+| Package | Source | Why we need it | Added when |
+|---|---|---|---|
+| `modem73` | github.com/RFnexus/modem73/releases (`.deb` / `.rpm` assets) | OFDM software modem for HF/VHF/UHF. Provides `/usr/bin/modem73` (1.4 MB ARM64 ELF) that the launcher's Modem73 Config TUI row spawns (via `start_modem73_tui.sh` opening `lxterminal --title=modem73`) and that the loopback instance runs headlessly (`start_modem73_loopback.sh` → `/usr/bin/modem73 --headless --config ~/.config/modem73/settings`). The .deb also installs `/usr/lib/udev/rules.d/50-cm108-ptt.rules` for CM108 GPIO PTT support. **Pin to a specific version, not "latest"** — assets break API between releases and the launcher's `start_modem73_tui.sh` script assumes the TUI flag set of v2.x. apt dependencies (`libhamlib4`, `libhidapi-hidraw0`) come along with the .deb install; `libhamlib4` is provided by the `hamlib` apt package we already install. See `docs/MODEM73.md` for the full design and config. | 2026-09-08 |
 
 ## Digimode apps (apt) — also required
 

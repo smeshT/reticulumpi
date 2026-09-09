@@ -119,10 +119,21 @@ pipx install reticulum-meshchatx
 # modem73 (OFDM software modem for HF/VHF/UHF; provides a
 # Reticulum TCP interface bridged to the radio channel — see
 # docs/MODEM73.md for the full design and config)
-pipx install modem73
-# launcher scripts reference /usr/bin/modem73; the pipx binary
-# lives at ~/.local/bin/modem73, so symlink:
-sudo ln -sf /home/pi/.local/bin/modem73 /usr/bin/modem73
+#
+# NOT pipx / pip — modem73 ships as native .deb / .rpm binaries
+# on GitHub releases. Pick the asset that matches the OS:
+#   - Raspberry Pi OS Bookworm (arm64, default) → debian-12_arm64
+#   - Pi 4 in legacy 32-bit mode (armhf)         → debian-12_armhf
+#   - Pi 5 / Ubuntu 22.04+ (arm64)              → ubuntu-24.04_arm64
+# Pin to a specific version (NOT "latest") for reproducibility.
+MODEM73_VERSION="2.4.0"
+MODEM73_DEB="modem73_${MODEM73_VERSION}_debian-12_arm64.deb"
+wget -q "https://github.com/RFnexus/modem73/releases/download/v${MODEM73_VERSION}/${MODEM73_DEB}" \
+    -O "/tmp/${MODEM73_DEB}"
+sudo apt install -y "/tmp/${MODEM73_DEB}"
+rm -f "/tmp/${MODEM73_DEB}"
+# Verify
+/usr/bin/modem73 --help 2>&1 | head -3
 ```
 
 **Note on direwolf:** As of 2026-08, the apt `direwolf` package

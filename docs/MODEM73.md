@@ -27,24 +27,45 @@ wsjtx / fldigi etc.
 
 ## Install
 
+Modem73 ships as **native binaries on GitHub releases** (NOT
+PyPI / pipx / pip). Releases page:
+https://github.com/RFnexus/modem73/releases
+
+Pin to a specific version — don't track "latest". The .deb
+assets break API between releases and the launcher's
+`start_modem73_tui.sh` assumes the v2.x TUI flag set.
+
 ```bash
-# Modem73 is on PyPI
-pip install modem73
-# or pipx for an isolated venv (recommended)
-pipx install modem73
+# Pick the asset that matches the OS:
+#   - Raspberry Pi OS Bookworm (arm64, default) → debian-12_arm64
+#   - Pi 4 in legacy 32-bit mode (armhf)         → debian-12_armhf
+#   - Pi 5 / Ubuntu 22.04+ (arm64)              → ubuntu-24.04_arm64
+MODEM73_VERSION="2.4.0"
+MODEM73_DEB="modem73_${MODEM73_VERSION}_debian-12_arm64.deb"
+wget -q "https://github.com/RFnexus/modem73/releases/download/v${MODEM73_VERSION}/${MODEM73_DEB}" \
+    -O "/tmp/${MODEM73_DEB}"
+sudo apt install -y "/tmp/${MODEM73_DEB}"
+rm -f "/tmp/${MODEM73_DEB}"
 
 # Verify
-modem73 --help
-modem73 --version
+/usr/bin/modem73 --help | head -10
+/usr/bin/modem73 --version 2>&1 || true
+# (modem73 doesn't have --version; the build date is in
+# the banner output.)
 ```
 
-The `modem73` binary lands in `~/.local/bin/` (pipx) or
-`/usr/local/bin/` (system pip). The launcher scripts reference
-`/usr/bin/modem73`; if you pipx-installed, symlink:
+The .deb installs `/usr/bin/modem73` (1.4 MB ARM64 ELF,
+statically-ish; needs libc, libstdc++, libhamlib4,
+libhidapi-hidraw0, libncurses6) and a udev rule at
+`/usr/lib/udev/rules.d/50-cm108-ptt.rules` for CM108 GPIO
+PTT. `libhamlib4` is provided by the `hamlib` apt package
+we already install; `libhidapi-hidraw0` comes along with
+the .deb as a Depends entry.
 
-```bash
-sudo ln -sf ~/.local/bin/modem73 /usr/bin/modem73
-```
+Build provenance: the build timestamp in the binary
+(`MODEM73 build <date>`) matches the github release
+publish time (v2.4.0 was published 2026-08-29T14:14:44Z;
+binary banner reads `Aug 29 2026 14:12:50`).
 
 ## Config
 
