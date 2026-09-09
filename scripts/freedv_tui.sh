@@ -134,20 +134,51 @@ fi
 INPUT_DEV=$(printf '%s\n' "$FREEDVTNC2_CMD" | grep -oE -- '--input-device[ =][0-9]+' | grep -oE '[0-9]+' | head -1)
 OUTPUT_DEV=$(printf '%s\n' "$FREEDVTNC2_CMD" | grep -oE -- '--output-device[ =][0-9]+' | grep -oE '[0-9]+' | head -1)
 
-# Pre-flight: is the audio device actually present? arecord -l
-# prints lines like:
-#   card 1: vc4hdmi0 [vc4-hdmi-0], device 0: MAI PCM i2s-hifi-0 ...
-# We extract the card numbers and check our config against them.
+# Pre-flight: is the audio device actually present? freedvtnc2's
+# --input-device / --output-device are PortAudio device IDs, NOT
+# ALSA card numbers. The ReticulumHF wizard's get_freedvtnc2_device_id()
+# function maps ALSA card N → PortAudio ID (which can be any small
+# integer, depends on enumeration order). To verify the configured
+# device exists, we ask freedvtnc2 itself, which prints the same
+# numbering used by --input-device / --output-device.
+#
+# Previous implementation (v0.6.36 and earlier) used arecord -l /
+# aplay -l and looked for "^card ${INPUT_DEV}:". That treated the
+# PortAudio ID as an ALSA card number, which is wrong. On a freshly
+# built reticulumpi with AUDIO_CARD=3 (USB digirig), the wizard maps
+# to PortAudio device 1. The pre-flight then looked for ALSA card 1
+# (which is the HDMI port on the Pi 5), didn't find the USB digirig
+# under that name, and bailed with "audio device not found" — even
+# though freedvtnc2 itself would have started cleanly.
+#
+# New implementation: run `freedvtnc2 --list-audio-devices`, ignore
+# stderr (ALSA pydub warnings are noise), and look for a line whose
+# first whitespace-separated token matches the configured ID. We
+# don't pre-flight on missing-device here — freedvtnc2 will print
+# its own error in the TUI if the device actually doesn't exist.
+# The point of this check is just to catch the "operator moved the
+# digirig and the saved PortAudio ID is now stale" case so we can
+# show a useful diagnostic before freedvtnc2 fails.
 MISSING=0
-if [ -n "$INPUT_DEV" ]; then
-    if ! arecord -l 2>/dev/null | grep -qE "^card ${INPUT_DEV}:"; then
-        MISSING=1
+FREEDVTNC2_BIN=$(printf '%s\n' "$FREEDVTNC2_CMD" | awk '{print $1}')
+# Sanity: only run the pre-flight if the configured binary exists.
+if [ -x "$FREEDVTNC2_BIN" ] || command -v "$FREEDVTNC2_BIN" >/dev/null 2>&1; then
+    LIST_OUTPUT=$("$FREEDVTNC2_BIN" --list-audio-devices 2>/dev/null || true)
+    if [ -n "$INPUT_DEV" ]; then
+        if ! printf '%s\n' "$LIST_OUTPUT" | awk -v want="$INPUT_DEV" \
+                '$1 == want { found=1; exit } END { exit !found }'; then
+            MISSING=1
+        fi
     fi
-fi
-if [ -n "$OUTPUT_DEV" ] && [ "$MISSING" = 0 ]; then
-    if ! aplay -l 2>/dev/null | grep -qE "^card ${OUTPUT_DEV}:"; then
-        MISSING=1
+    if [ -n "$OUTPUT_DEV" ] && [ "$MISSING" = 0 ]; then
+        if ! printf '%s\n' "$LIST_OUTPUT" | awk -v want="$OUTPUT_DEV" \
+                '$1 == want { found=1; exit } END { exit !found }'; then
+            MISSING=1
+        fi
     fi
+else
+    # Binary missing — let freedvtnc2's own error handle it.
+    MISSING=0
 fi
 
 # Build the CLI command: same as FREEDVTNC2_CMD but with --no-cli
@@ -168,17 +199,22 @@ if [ "$MISSING" = 1 ]; then
                      echo \"  --input-device  ${INPUT_DEV:-<unset>}\"; \
                      echo \"  --output-device ${OUTPUT_DEV:-<unset>}\"; \
                      echo; \
+                     echo 'Note: --input-device / --output-device are PortAudio device'; \
+                     echo 'IDs, NOT ALSA card numbers. The ReticulumHF wizard maps'; \
+                     echo 'ALSA card N (set by AUDIO_CARD) to a PortAudio ID, which'; \
+                     echo 'can change when hardware is added/removed.'; \
+                     echo; \
+                     echo 'freedvtnc2 --list-audio-devices:'; \
+                     $FREEDVTNC2_BIN --list-audio-devices 2>/dev/null | sed 's/^/  /'; \
+                     echo; \
                      echo 'arecord -l output:'; \
                      arecord -l 2>&1 | sed 's/^/  /'; \
                      echo; \
-                     echo 'aplay -l output:'; \
-                     aplay -l 2>&1 | sed 's/^/  /'; \
-                     echo; \
                      echo 'To fix:'; \
                      echo '  1. Plug in the G90 (USB audio + serial appear as new cards).'; \
-                     echo '  2. If the device index changed, edit AUDIO_CARD in'; \
-                     echo \"     $CONFIG_ENV (current value: \${AUDIO_CARD:-<unset>}).\"; \
-                     echo '  3. Re-run this terminal.'; \
+                     echo '  2. Re-run the ReticulumHF setup wizard (port 8080) to'; \
+                     echo '     re-detect audio and refresh PortAudio IDs.'; \
+                     echo '  3. Or edit AUDIO_CARD in $CONFIG_ENV and re-run the wizard.'; \
                      echo; \
                      read -p 'Press Enter to close...' _" \
         >/dev/null 2>&1 &

@@ -1,0 +1,75 @@
+{
+  "release": "v0.6.37",
+  "release_date": "2026-09-09",
+  "image_baseline": "g90digi-2026-08-09",
+  "channel": "https://github.com/smeshT/reticulumpi.git",
+  "branch": "main",
+  "components": {
+    "launcher": {
+      "type": "github-pull",
+      "auto_update": true,
+      "source_path": "/"
+    },
+    "systemd_units": [
+      {
+        "name": "g90-shared-launcher.service",
+        "required": true
+      },
+      {
+        "name": "reticulumhf-rnsd.service",
+        "required": true
+      },
+      {
+        "name": "meshchatx.service",
+        "required": true
+      },
+      {
+        "name": "lxmd.service",
+        "required": true
+      }
+    ],
+    "pip_packages": [
+      {
+        "venv": "rns",
+        "package": "rns",
+        "min_version": "1.4.0"
+      },
+      {
+        "venv": "rns",
+        "package": "lxmf",
+        "min_version": "1.1.0"
+      },
+      {
+        "venv": "reticulum-meshchatx",
+        "package": "reticulum-meshchatx",
+        "min_version": "4.8.0"
+      }
+    ],
+    "config_files": [
+      {
+        "path": "/home/pi/.reticulum/config",
+        "required": true
+      },
+      {
+        "path": "/etc/systemd/system/meshchatx.service",
+        "required": true
+      },
+      {
+        "path": "/usr/local/bin/restart-meshchatx",
+        "required": true,
+        "mode": "0755"
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/start_pavucontrol.sh",
+        "required": true,
+        "mode": "0755"
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/stop_pavucontrol.sh",
+        "required": true,
+        "mode": "0755"
+      }
+    ]
+  },
+  "notes": "v0.6.37: fix freedv_tui.sh pre-flight (PortAudio ID != ALSA card number).\n\nProblem (operator 2026-09-09 15:37 MDT): the freedvtnc2 chat TUI\nbutton on the launcher would not start, even though freedvtnc2\nas a systemd service runs fine. The ReticulumHF wizard sets up\nfreedvtnc2 with the right audio device, but the TUI button\nbailed with \"audio device not found\".\n\nRoot cause: freedv_tui.sh's pre-flight check was wrong. It\nextracted --input-device N from FREEDVTNC2_CMD and ran\narecord -l, looking for \"card N:\". But --input-device N in\nfreedvtnc2 is a PortAudio device ID, not an ALSA card number.\nThe ReticulumHF wizard's get_freedvtnc2_device_id() function\nmaps ALSA card N \u2192 PortAudio ID (which can be any small int).\nOn the fresh build, AUDIO_CARD=3 (USB digirig) maps to\nPortAudio device 1. The pre-flight then looked for ALSA card 1\n(which on a Pi 5 is the HDMI port), didn't find the USB\ndigirig there, and bailed \u2014 even though freedvtnc2 itself\nwould have started cleanly with --input-device 1.\n\nFix: rewrite the pre-flight to use freedvtnc2 --list-audio-devices\n(the same enumeration used by --input-device), with awk\nmatching on the first whitespace-separated token. Stderr is\nsuppressed (ALSA pydub warnings are noise). The error\nmessage also shows freedvtnc2's own list, arecord -l for\ncross-reference, and points the operator to the wizard\n(port 8080) as the fix path.\n\nEffect: clicking the freedvtnc2 chat TUI button now starts\nthe xterm + freedvtnc2 on a freshly built reticulumpi,\nmatching the systemd-service behavior. The \"audio device not\nfound\" error path still works when the device genuinely\ndisappears (e.g. operator unplugs the digirig)."
+}
