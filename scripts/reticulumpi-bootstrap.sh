@@ -149,8 +149,21 @@ sudo apt install -y \
     xterm lxterminal pulseaudio pavucontrol \
     novnc python3-novnc python3-websockify websockify \
     x11vnc xvfb openbox \
-    fonts-dejavu-core
+    fonts-dejavu-core \
+    libcap2-bin
 ok "apt install block 1 (system tools, radio apps, noVNC stack) succeeded"
+
+# Grant python3 the ability to bind to low ports (<1024). The shared
+# launcher runs as User=pi but binds to :80 so wifi clients can land
+# on it after the captive-portal redirect. Without cap_net_bind_service
+# the bind fails with PermissionError [errno 13]. g90digi has this
+# set via libcap2-bin's setcap; we apply the same here. (The
+# cap_net_bind_service capability only applies to socket bind(),
+# nothing else — it's the standard "let a non-root process bind
+# privileged ports" pattern.)
+PYTHON_BIN=$(readlink -f /usr/bin/python3)
+sudo setcap cap_net_bind_service=+ep "$PYTHON_BIN"
+ok "python3 granted cap_net_bind_service ($PYTHON_BIN)"
 
 # Verify: every binary resolves
 MISSING_BIN=0

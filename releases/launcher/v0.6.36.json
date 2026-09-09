@@ -1,0 +1,75 @@
+{
+  "release": "v0.6.36",
+  "release_date": "2026-09-09",
+  "image_baseline": "g90digi-2026-08-09",
+  "channel": "https://github.com/smeshT/reticulumpi.git",
+  "branch": "main",
+  "components": {
+    "launcher": {
+      "type": "github-pull",
+      "auto_update": true,
+      "source_path": "/"
+    },
+    "systemd_units": [
+      {
+        "name": "g90-shared-launcher.service",
+        "required": true
+      },
+      {
+        "name": "reticulumhf-rnsd.service",
+        "required": true
+      },
+      {
+        "name": "meshchatx.service",
+        "required": true
+      },
+      {
+        "name": "lxmd.service",
+        "required": true
+      }
+    ],
+    "pip_packages": [
+      {
+        "venv": "rns",
+        "package": "rns",
+        "min_version": "1.4.0"
+      },
+      {
+        "venv": "rns",
+        "package": "lxmf",
+        "min_version": "1.1.0"
+      },
+      {
+        "venv": "reticulum-meshchatx",
+        "package": "reticulum-meshchatx",
+        "min_version": "4.8.0"
+      }
+    ],
+    "config_files": [
+      {
+        "path": "/home/pi/.reticulum/config",
+        "required": true
+      },
+      {
+        "path": "/etc/systemd/system/meshchatx.service",
+        "required": true
+      },
+      {
+        "path": "/usr/local/bin/restart-meshchatx",
+        "required": true,
+        "mode": "0755"
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/start_pavucontrol.sh",
+        "required": true,
+        "mode": "0755"
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/stop_pavucontrol.sh",
+        "required": true,
+        "mode": "0755"
+      }
+    ]
+  },
+  "notes": "v0.6.36: install libcap2-bin + setcap cap_net_bind_service on python3.\n\nThe v0.6.35 port layout (launcher :80, wizard :8080) revealed\na second issue: the launcher runs as User=pi, and pi on the\nReticulumHF base has no CAP_NET_BIND_SERVICE. Binding to :80\nfails with \"PermissionError: [Errno 13] Permission denied\".\n\ng90digi has been running on :80 for months because someone\nhand-installed libcap2-bin and ran:\n\n  sudo setcap cap_net_bind_service=+ep /usr/bin/python3.11\n\nThe fresh build didn't have that step. Fix:\n\n- Bootstrap apt block now installs libcap2-bin.\n- After the apt install, bootstrap grants python3.11 the\n  cap_net_bind_service capability via setcap. This is the\n  standard \"let a non-root process bind privileged ports\"\n  pattern \u2014 the cap only applies to socket bind(), nothing\n  else.\n\nEffect: launcher binds to :80 as User=pi. g90digi layout\n(launcher :80, wizard :8080, wifi :8081) is now reproducible\nfrom a fresh flash."
+}
