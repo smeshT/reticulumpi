@@ -284,7 +284,14 @@ cd "$LAUNCHER_DIR"
 git fetch --tags
 
 # Get latest tag from github
-LATEST_TAG=$(git ls-remote --tags --sort=-v:refname "$GITHUB_REPO" 2>/dev/null | head -1 | sed 's/.*refs\/tags\///' | sed 's/\^{}//')
+# Filter to only vX.Y.Z tags (3-segment). 'git ls-remote --sort=-v:refname'
+# returns v0.6 BEFORE v0.6.28 because 'v0.6' is treated as 'v0.6.0' and
+# the version comparison puts v0.6.0 > v0.6.28. Filtering to 3-segment
+# tags avoids that. 'sed -n s/.*refs\/tags\///p' strips the SHA prefix
+# from the line, leaving just the tag name.
+LATEST_TAG=$(git ls-remote --tags --sort=-v:refname "$GITHUB_REPO" 2>/dev/null \
+    | awk '/refs\/tags\/v[0-9]+\.[0-9]+\.[0-9]+$/ {print $2}' \
+    | head -1 | sed 's|refs/tags/||; s/\^{}//')
 if [ -z "$LATEST_TAG" ]; then
     fail "could not determine latest tag from github"
 fi

@@ -1,0 +1,75 @@
+{
+  "release": "v0.6.29",
+  "release_date": "2026-09-09",
+  "image_baseline": "g90digi-2026-08-09",
+  "channel": "https://github.com/smeshT/reticulumpi.git",
+  "branch": "main",
+  "components": {
+    "launcher": {
+      "type": "github-pull",
+      "auto_update": true,
+      "source_path": "/"
+    },
+    "systemd_units": [
+      {
+        "name": "g90-shared-launcher.service",
+        "required": true
+      },
+      {
+        "name": "reticulumhf-rnsd.service",
+        "required": true
+      },
+      {
+        "name": "meshchatx.service",
+        "required": true
+      },
+      {
+        "name": "lxmd.service",
+        "required": true
+      }
+    ],
+    "pip_packages": [
+      {
+        "venv": "rns",
+        "package": "rns",
+        "min_version": "1.4.0"
+      },
+      {
+        "venv": "rns",
+        "package": "lxmf",
+        "min_version": "1.1.0"
+      },
+      {
+        "venv": "reticulum-meshchatx",
+        "package": "reticulum-meshchatx",
+        "min_version": "4.8.0"
+      }
+    ],
+    "config_files": [
+      {
+        "path": "/home/pi/.reticulum/config",
+        "required": true
+      },
+      {
+        "path": "/etc/systemd/system/meshchatx.service",
+        "required": true
+      },
+      {
+        "path": "/usr/local/bin/restart-meshchatx",
+        "required": true,
+        "mode": "0755"
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/start_pavucontrol.sh",
+        "required": true,
+        "mode": "0755"
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/stop_pavucontrol.sh",
+        "required": true,
+        "mode": "0755"
+      }
+    ]
+  },
+  "notes": "v0.6.29: fix tag discovery in bootstrap script (3-segment filter).\n\n`git ls-remote --tags --sort=-v:refname` returns 'v0.6' BEFORE\n'v0.6.28' because git treats 'v0.6' as 'v0.6.0' and version\ncomparison puts v0.6.0 > v0.6.28. The script's `head -1`\npicked up v0.6 (the older 2-segment tag) and pinned the\nworking tree to that, which is way out of date.\n\nFix: filter the ls-remote output to only 3-segment tags\n(vX.Y.Z) before taking head -1. The awk regex '/refs\\/tags\\/v[0-9]+\\.[0-9]+\\.[0-9]+$/'\nmatches exactly the 3-segment version tags. Then sed strips\nthe refs/tags/ prefix and the ^{} peeled-tag suffix.\n\nAfter this fix, the script will pin to v0.6.28 (the actual\nlatest at the time of the fix) instead of v0.6."
+}
