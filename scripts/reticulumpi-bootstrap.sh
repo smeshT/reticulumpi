@@ -280,6 +280,37 @@ sudo mkdir -p /home/pi/.reticulum
 sudo chown pi:pi /home/pi/.reticulum
 ok "/home/pi/.reticulum"
 
+# Add the [[Modem73]] Reticulum interface block to the config if it
+# doesn't exist. The ReticulumHF wizard writes the config without this
+# block; without it, the launcher's toggle_modem73_audio.sh can't
+# enable the modem73 OFDM bearer and the button silently fails. We
+# create the block here so the button works on first run. Pattern
+# matches g90digi's config: type=Modem73Interface, target_port=8002,
+# control_port=8073, mode=roaming (rate-limits per-interface
+# announces; full internal mode causes cross-box announce cascades).
+if [ ! -f /home/pi/.reticulum/config ] || ! grep -qi '^\s*\[\[Modem73\]\]' /home/pi/.reticulum/config; then
+    RETICULUM_CONFIG=/home/pi/.reticulum/config
+    if [ -f "$RETICULUM_CONFIG" ]; then
+        # Config exists but no Modem73 block — append.
+        sudo -u pi bash -c "cat >> '$RETICULUM_CONFIG' <<'EOF'
+
+[[Modem73]]
+  type = Modem73Interface
+  enabled = false
+  target_host = 127.0.0.1
+  target_port = 8002
+  control_host = 127.0.0.1
+  control_port = 8073
+  mode = roaming
+  announce_cap = 1
+EOF"
+        ok "appended [[Modem73]] block to existing Reticulum config"
+    fi
+    # If the config doesn't exist yet, the ReticulumHF wizard will
+    # create it on first run; the toggle script's case-insensitive
+    # fallback will add the Modem73 block on the first toggle.
+fi
+
 sudo mkdir -p /home/pi/.lxmd
 sudo chown pi:pi /home/pi/.lxmd
 ok "/home/pi/.lxmd"

@@ -32,7 +32,7 @@ get_state() {
     awk -f "$PARSER" "$CONFIG"
 }
 
-current=$(get_state) || die "could not find enabled= inside [[Modem73]] block" 1
+current=$(get_state) || die "could not find enabled= inside [[Modem73]] block (and no [[Modem73]] block exists to create — check the awk parser)" 1
 
 # ---------- determine target state ----------
 target="${1:-}"
@@ -55,9 +55,33 @@ cfg_path, new_val = sys.argv[1], sys.argv[2]
 p = pathlib.Path(cfg_path)
 text = p.read_text()
 
-m_start = re.search(r'^\s*\[\[Modem73\]\]', text, re.MULTILINE)
+m_start = re.search(r'^\s*\[\[(?i:Modem73)\]\]', text, re.MULTILINE)
 if not m_start:
-    sys.exit('block [[Modem73]] not found')
+    # The Modem73 interface block doesn't exist in the config (fresh
+    # install: the bootstrap didn't create it, and the ReticulumHF
+    # wizard doesn't add it). Create a default block at the end of
+    # the file. Pattern matches the g90digi config: type=Modem73Interface,
+    # target_port=8002, control_port=8073, mode=roaming (to rate-limit
+    # per-interface announces; full internal mode causes cross-box
+    # announce cascades on the g90 fleet).
+    block_template = (
+        '\n[[Modem73]]\n'
+        '  type = Modem73Interface\n'
+        '  enabled = ' + new_val + '\n'
+        '  target_host = 127.0.0.1\n'
+        '  target_port = 8002\n'
+        '  control_host = 127.0.0.1\n'
+        '  control_port = 8073\n'
+        '  mode = roaming\n'
+        '  announce_cap = 1\n'
+    )
+    if not text.endswith('\n'):
+        block_template = '\n' + block_template
+    tmp = p.with_suffix('.config.toggle.tmp')
+    tmp.write_text(text + block_template)
+    tmp.replace(p)
+    print('created [[Modem73]] block with enabled = ' + new_val)
+    sys.exit(0)
 start = m_start.start()
 rest = text[m_start.end():]
 m_nxt = re.search(r'\n\s*\[\[', rest)
@@ -72,7 +96,7 @@ new_block, n = re.subn(
     count=1,
 )
 if n != 1:
-    sys.exit('expected 1 enabled= in [[Modem73]], found ' + str(n))
+    sys.exit('expected 1 enabled= in [[Modem73]] block, found ' + str(n))
 
 new_text = text[:start] + new_block + text[end:]
 tmp = p.with_suffix('.config.toggle.tmp')

@@ -1,0 +1,75 @@
+{
+  "release": "v0.6.42",
+  "release_date": "2026-09-09",
+  "image_baseline": "g90digi-2026-08-09",
+  "channel": "https://github.com/smeshT/reticulumpi.git",
+  "branch": "main",
+  "components": {
+    "launcher": {
+      "type": "github-pull",
+      "auto_update": true,
+      "source_path": "/"
+    },
+    "systemd_units": [
+      {
+        "name": "g90-shared-launcher.service",
+        "required": true
+      },
+      {
+        "name": "reticulumhf-rnsd.service",
+        "required": true
+      },
+      {
+        "name": "meshchatx.service",
+        "required": true
+      },
+      {
+        "name": "lxmd.service",
+        "required": true
+      }
+    ],
+    "pip_packages": [
+      {
+        "venv": "rns",
+        "package": "rns",
+        "min_version": "1.4.0"
+      },
+      {
+        "venv": "rns",
+        "package": "lxmf",
+        "min_version": "1.1.0"
+      },
+      {
+        "venv": "reticulum-meshchatx",
+        "package": "reticulum-meshchatx",
+        "min_version": "4.8.0"
+      }
+    ],
+    "config_files": [
+      {
+        "path": "/home/pi/.reticulum/config",
+        "required": true
+      },
+      {
+        "path": "/etc/systemd/system/meshchatx.service",
+        "required": true
+      },
+      {
+        "path": "/usr/local/bin/restart-meshchatx",
+        "required": true,
+        "mode": "0755"
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/start_pavucontrol.sh",
+        "required": true,
+        "mode": "0755"
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/stop_pavucontrol.sh",
+        "required": true,
+        "mode": "0755"
+      }
+    ]
+  },
+  "notes": "v0.6.42: fix Modem73 Interface toggle (case-insensitive + create block).\n\nThe v0.6.40 fix (nohup vs disown) was necessary but not\nsufficient. The actual root cause of \"Modem73 Interface:\nStart button does nothing\" was that toggle_modem73_audio.sh\ncouldn't find the [[Modem73]] block in the Reticulum config,\nbecause:\n\n1. The bootstrap didn't create the block. The ReticulumHF\n   wizard writes the config without it. Fresh builds had no\n   [[Modem73]] block at all.\n\n2. The toggle script (and parse_modem73_block.awk) used\n   case-sensitive regex matching for [[Modem73]]. g90digi's\n   config has [[MODEM73]] (uppercase), so the toggle would\n   ALSO fail there \u2014 confirmed by running it directly. This\n   bug had been latent on g90digi because nobody had toggled\n   the interface since the config was hand-edited.\n\nFix:\n- toggle_modem73_audio.sh: regex changed to (?i:Modem73) for\n  case-insensitive match. If no [[Modem73]] block exists, the\n  script creates one with the g90digi-compatible defaults\n  (type=Modem73Interface, port=8002, control_port=8073,\n  mode=roaming, announce_cap=1).\n- parse_modem73_block.awk: case-insensitive match via\n  tolower() comparison.\n- Bootstrap: after creating /home/pi/.reticulum, appends a\n  [[Modem73]] block to the config if it doesn't already have\n  one. This way, fresh builds have the block on day 0 and\n  the toggle just works.\n\nEffect: Modem73 Interface: Start button now works on both\nfreshly-built reticulumpi AND on g90digi (where it was\nsilently broken too). The button toggles the Reticulum\n[[Modem73]] block to enabled, restarts rnsd, and starts the\nmodem73 subprocess via the nohup'd start_modem73_loopback.sh."
+}

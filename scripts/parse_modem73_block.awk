@@ -1,4 +1,4 @@
-/^[[:space:]]*\[\[Modem73\]\]/ { inblock = 1; next }
+tolower($0) ~ /^[[:space:]]*\[\[(modem73)\]\]/ { inblock = 1; next }
 inblock && /^[[:space:]]*#/         { next }
 inblock && /^[[:space:]]*enabled[[:space:]]*=/ {
     gsub(/^[[:space:]]+|[[:space:]]+$/, "", $0)
