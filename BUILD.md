@@ -196,14 +196,21 @@ git checkout -f v0.6.15   # or whichever latest is on github
 # the current version. The version after Step 6 should be
 # the same as the version pinned here.
 
-# 1b. Install patmenu2 (prerequisite for the start-pat-ardop
-# overlay patch in step 5 below). patmenu2 is an external
-# project; we don't ship a fork. Clone upstream, then we'll
-# layer our one-file edit on top in step 5.
-git clone https://github.com/la5nta/patmenu2.git /home/pi/patmenu2
-# The repo's README has its own install steps (yad apt dep,
-# config tweaks). The clone is enough to land our overlay
-# patch in step 5; do the rest of patmenu2 setup later.
+# 1b. Install patmenu2 (OPTIONAL — prerequisite only for the
+# start-pat-ardop overlay patch in step 5). patmenu2 is an
+# external project (la5nta/patmenu2) that lives in a private
+# GitHub repo as of 2026-09-09; the upstream has been 404 on
+# the public API since at least this session, so anonymous
+# clone does not work. Skip this step unless you have a
+# personal access token and the patmenu2 feature path is on
+# your deployment plan. The launcher row for "Pat → ARDOP"
+# won't work without it, but every other launcher row is
+# independent of patmenu2.
+#
+# git clone https://github.com/la5nta/patmenu2.git /home/pi/patmenu2
+# (The clone is enough to land our overlay patch in step 5;
+# do the rest of patmenu2 setup later, including the
+# per-instance yad / config tweaks per patmenu2's own README.)
 
 # 1c. Create pat's config directory (only exists after pat's
 # first run; the overlay cp in step 2 will fail without this).
@@ -233,10 +240,14 @@ sudo chmod +x /usr/local/bin/restart-meshchatx
 sudo bash g90-image/scripts/prepare-meshchatx-dirs.sh
 sudo bash g90-image/scripts/prepare-lxmd-dirs.sh
 
-# 5. Patch patmenu2 (only the start-pat-ardop edit; we don't
-# ship a fork — patmenu2 was cloned in step 1b)
-sudo cp g90-image/patmenu2-edits/start-pat-ardop /home/pi/patmenu2/start-pat-ardop
-chmod +x /home/pi/patmenu2/start-pat-ardop
+# 5. Patch patmenu2 (OPTIONAL — only if you completed step 1b).
+# We don't ship a fork; patmenu2 was cloned in step 1b.
+# If you skipped 1b (because la5nta/patmenu2 isn't publicly
+# accessible), skip this too — the launcher's "Pat → ARDOP"
+# launcher row will be inert, but every other row works.
+#
+# sudo cp g90-image/patmenu2-edits/start-pat-ardop /home/pi/patmenu2/start-pat-ardop
+# chmod +x /home/pi/patmenu2/start-pat-ardop
 
 # 6. Install the ARDOP PTT bridge (optional — only if using
 #    piardopc / digipify stack)

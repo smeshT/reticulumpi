@@ -1,0 +1,75 @@
+{
+  "release": "v0.6.17",
+  "release_date": "2026-09-09",
+  "image_baseline": "g90digi-2026-08-09",
+  "channel": "https://github.com/smeshT/reticulumpi.git",
+  "branch": "main",
+  "components": {
+    "launcher": {
+      "type": "github-pull",
+      "auto_update": true,
+      "source_path": "/"
+    },
+    "systemd_units": [
+      {
+        "name": "g90-shared-launcher.service",
+        "required": true
+      },
+      {
+        "name": "reticulumhf-rnsd.service",
+        "required": true
+      },
+      {
+        "name": "meshchatx.service",
+        "required": true
+      },
+      {
+        "name": "lxmd.service",
+        "required": true
+      }
+    ],
+    "pip_packages": [
+      {
+        "venv": "rns",
+        "package": "rns",
+        "min_version": "1.4.0"
+      },
+      {
+        "venv": "rns",
+        "package": "lxmf",
+        "min_version": "1.1.0"
+      },
+      {
+        "venv": "reticulum-meshchatx",
+        "package": "reticulum-meshchatx",
+        "min_version": "4.8.0"
+      }
+    ],
+    "config_files": [
+      {
+        "path": "/home/pi/.reticulum/config",
+        "required": true
+      },
+      {
+        "path": "/etc/systemd/system/meshchatx.service",
+        "required": true
+      },
+      {
+        "path": "/usr/local/bin/restart-meshchatx",
+        "required": true,
+        "mode": "0755"
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/start_pavucontrol.sh",
+        "required": true,
+        "mode": "0755"
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/stop_pavucontrol.sh",
+        "required": true,
+        "mode": "0755"
+      }
+    ]
+  },
+  "notes": "v0.6.17: make patmenu2 steps in BUILD.md optional (upstream repo not publicly accessible).\n\nCaught during clean build on the new `reticulumpi` Pi.\n`git clone https://github.com/la5nta/patmenu2.git` failed with\n\"Username for 'https://github.com':\" because the la5nta/patmenu2\nrepo is not publicly accessible \u2014 the github API returns 404 on\nthe public endpoint, and `git clone` (anonymous) gets a 401\non the smart-HTTP ref advertisement. The \"Username\" prompt is\ngit asking for credentials, which the operator doesn't have for\nthat private repo.\n\nTwo BUILD.md changes:\n- Step 4.1b: patmenu2 clone now commented out with explicit\n  \"OPTIONAL\" + \"skip unless you have a PAT\" note. Reasoning\n  documented inline.\n- Step 4.5: patmenu2 overlay cp now commented out for the\n  same reason. Notes that the launcher's \"Pat \u2192 ARDOP\" row\n  will be inert without it, but every other launcher row is\n  independent of patmenu2.\n\nPat \u2192 ARDOP feature path is already documented in\nmemory/g90-project.md as untested (the \"patmenu2's Start Modem\nbutton doesn't work\" entry, 2026-08-29). Making the recipe\nhonest about that.\n\nNo code or overlay changes. Docs only."
+}
