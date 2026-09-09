@@ -1,0 +1,75 @@
+{
+  "release": "v0.6.40",
+  "release_date": "2026-09-09",
+  "image_baseline": "g90digi-2026-08-09",
+  "channel": "https://github.com/smeshT/reticulumpi.git",
+  "branch": "main",
+  "components": {
+    "launcher": {
+      "type": "github-pull",
+      "auto_update": true,
+      "source_path": "/"
+    },
+    "systemd_units": [
+      {
+        "name": "g90-shared-launcher.service",
+        "required": true
+      },
+      {
+        "name": "reticulumhf-rnsd.service",
+        "required": true
+      },
+      {
+        "name": "meshchatx.service",
+        "required": true
+      },
+      {
+        "name": "lxmd.service",
+        "required": true
+      }
+    ],
+    "pip_packages": [
+      {
+        "venv": "rns",
+        "package": "rns",
+        "min_version": "1.4.0"
+      },
+      {
+        "venv": "rns",
+        "package": "lxmf",
+        "min_version": "1.1.0"
+      },
+      {
+        "venv": "reticulum-meshchatx",
+        "package": "reticulum-meshchatx",
+        "min_version": "4.8.0"
+      }
+    ],
+    "config_files": [
+      {
+        "path": "/home/pi/.reticulum/config",
+        "required": true
+      },
+      {
+        "path": "/etc/systemd/system/meshchatx.service",
+        "required": true
+      },
+      {
+        "path": "/usr/local/bin/restart-meshchatx",
+        "required": true,
+        "mode": "0755"
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/start_pavucontrol.sh",
+        "required": true,
+        "mode": "0755"
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/stop_pavucontrol.sh",
+        "required": true,
+        "mode": "0755"
+      }
+    ]
+  },
+  "notes": "v0.6.40: fix two more launch-day bugs on a fresh build.\n\n1. Modem73 Interface: Start silently failed.\n   Root cause: start_modem73_loopback.sh used `&` + `disown`\n   to background modem73. When the script's parent (the launcher\n   route's Popen) exited with `exit 0`, the script's session\n   (start_new_session=True) got SIGHUP'd by the kernel. The\n   backgrounded modem73 \u2014 disowned but not nohup'd \u2014 died ~2s\n   later. The HTTP 302 came back fine, but modem73 was never\n   actually running.\n\n   Fix: use `nohup modem73 ... &` in start_modem73_loopback.sh.\n   nohup tells the kernel \"ignore SIGHUP\" for that process, so\n   the session-leader's exit doesn't kill it. Same fix applied\n   to start_pavucontrol.sh which had the same `disown` pattern.\n   (start_fldigi / start_flrig / start_js8call / start_wsjtx /\n   start_patmenu / start_freedata already used nohup and worked\n   correctly; this was an audit miss.)\n\n2. Wifi button + app help links in the launcher 404'd.\n   Root cause: the bootstrap never installed node-portal.\n   g90-image/node-portal/app.py + templates/ existed in the\n   repo, but the bootstrap had no install step. The Wifi button\n   pointed to :8081/wifi.html, which doesn't exist as a route\n   in node-portal (the wifi scan is at /scan; the index page at\n   / has the scan button).\n\n   Fix:\n   - Bootstrap now installs /home/pi/node-portal/ with app.py\n     and templates, creates /usr/local/bin/start-node-portal\n     wrapper, and adds /etc/systemd/system/node-portal.service.\n   - Bootstrap enables + starts node-portal.service.\n   - app.py updated to read PORT from env (default 8081).\n     The old code hardcoded port=8090, which made the wrapper\n     irrelevant and clashed with the launcher's default port.\n   - Launcher template: Wifi link :8081/wifi.html \u2192 :8081/\n     (the index page that has the scan button).\n\nEffect: fresh-flash reticulumpi now has node-portal running\non :8081, matching g90digi. The Wifi button + every app help\nlink (FLrig, JS8Call, FLDigi, WSJT-X) on the launcher all\nwork. The Modem73 Interface: Start button actually keeps\nmodem73 running."
+}

@@ -752,4 +752,4 @@ def reboot():
 # http://<host>/ for the launcher and reach the wifi page by typing
 # the port when needed. The wifi page is admin-only (network changes,
 # LAN reconfig); the launcher is the daily-driver UI.
-app.run(host="0.0.0.0", port=8090)
+app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8081)), debug=False)

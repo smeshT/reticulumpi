@@ -365,6 +365,50 @@ ok "wizard bound to :8080 (PORT=8080 in drop-in)"
 sudo cp g90-image/config/hostapd.conf /etc/hostapd/hostapd.conf
 sudo cp g90-image/config/pat-config.json /home/pi/.config/pat/config.json
 
+# Node-portal (the wifi admin / app help UI on :8081). The overlay
+# has g90-image/node-portal/app.py + g90-image/node-portal-templates/
+# (apps.html, index.html, wifi.html). On g90digi this lives at
+# /home/pi/node-portal/ with a /usr/local/bin/start-node-portal
+# wrapper that exports PORT=8081. Without this install, the Wifi
+# button + app help links in the launcher 404. Found missing
+# 2026-09-09 15:53 MDT.
+sudo install -d -o pi -g pi /home/pi/node-portal/templates
+sudo install -o pi -g pi -m 0644 g90-image/node-portal/app.py /home/pi/node-portal/app.py
+sudo install -o pi -g pi -m 0644 g90-image/node-portal-templates/*.html /home/pi/node-portal/templates/
+
+# Wrapper: start-node-portal exports PORT=8081 then execs the app.
+# (Pattern matches g90digi's wrapper exactly.)
+sudo tee /usr/local/bin/start-node-portal >/dev/null <<'EOF'
+#!/bin/bash
+export PORT=8081
+exec /usr/bin/python3 /home/pi/node-portal/app.py
+EOF
+sudo chmod +x /usr/local/bin/start-node-portal
+ok "node-portal installed at /home/pi/node-portal/ (templates + wrapper)"
+
+# Systemd unit for node-portal. Mirrors the g90digi layout: User=pi,
+# ExecStart is the wrapper, Restart=always, no cap needed because
+# PORT=8081 is unprivileged.
+sudo tee /etc/systemd/system/node-portal.service >/dev/null <<'EOF'
+[Unit]
+Description=ReticulumHF Node Portal
+After=network.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/node-portal
+ExecStart=/usr/local/bin/start-node-portal
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+sudo systemctl daemon-reload
+sudo systemctl enable --now node-portal.service
+ok "node-portal.service enabled + started"
+
 # modem73 default settings (audio=0 so modem73 starts on any hardware).
 # Only written if the file doesn't exist — operator's TUI-edited settings
 # are never overwritten by the bootstrap.

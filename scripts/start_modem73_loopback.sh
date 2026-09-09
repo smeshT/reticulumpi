@@ -16,17 +16,23 @@
 # (Found 2026-09-04 16:36 MDT while building the audio-reset button.)
 #
 # Detach model: shared_launcher/app.py invokes this via subprocess.Popen
-# with start_new_session=True, which already gives us our own session.
-# Do NOT add `setsid` here — double-detaching makes setsid exit 255
-# and the script aborts before modem73 actually launches.
-
+# with start_new_session=True, which puts the script in its own session
+# (via setsid). When the script exits, the kernel sends SIGHUP to all
+# processes in the session — including backgrounded children. `disown`
+# only removes the child from the shell's job table; it does NOT make
+# the child immune to session-leader SIGHUP. The fix is `nohup` on
+# the child itself, which tells the kernel "ignore SIGHUP" for that
+# process. (We previously used `disown` here; the modem73 would run
+# for ~2s, receive SIGHUP when this script exited, and die. Discovered
+# 2026-09-09 15:54 MDT while debugging the "Modem73 Interface: Start"
+# button silently failing.) The other start_*.sh scripts (fldigi, flrig,
+# js8call, wsjtx) already use nohup and work correctly.
 pkill -f "modem73 --headless" 2>/dev/null
 sleep 1
 
-/usr/bin/modem73 \
+nohup /usr/bin/modem73 \
   --headless \
   --config /home/pi/.config/modem73/settings \
   > /tmp/shared_launcher_modem73_loopback.log 2>&1 < /dev/null &
 
-disown
 exit 0

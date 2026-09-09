@@ -54,7 +54,12 @@ fi
 
 # Launch detached so the launcher's subprocess.Popen() returns
 # immediately. Without `&` the launcher route would block on
-# pavucontrol's main loop.
-pavucontrol >/tmp/pavucontrol.log 2>&1 &
-disown
+# pavucontrol's main loop. We use `nohup` (not just `&` + `disown`)
+# so the child survives the SIGHUP that the kernel sends to all
+# processes in the script's session when the script itself exits.
+# (Found 2026-09-09 15:54 MDT: `disown` only removes the child
+# from the shell's job table; it does NOT make the child immune
+# to session-leader SIGHUP. The other working start_*.sh scripts
+# already use nohup; this one was missed in that audit.)
+nohup pavucontrol >/tmp/pavucontrol.log 2>&1 &
 exit 0
