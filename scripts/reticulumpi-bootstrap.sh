@@ -311,6 +311,19 @@ phase "Phase 7: overlay (config files + systemd units)"
 sudo cp g90-image/config/reticulumhf-config.env /etc/reticulumhf/config.env
 sudo cp g90-image/config/hostapd.conf /etc/hostapd/hostapd.conf
 sudo cp g90-image/config/pat-config.json /home/pi/.config/pat/config.json
+
+# modem73 default settings (audio=0 so modem73 starts on any hardware).
+# Only written if the file doesn't exist — operator's TUI-edited settings
+# are never overwritten by the bootstrap.
+if [ ! -f /home/pi/.config/modem73/settings ]; then
+    sudo install -o pi -g pi -m 0644 \
+        g90-image/config/modem73-default-settings \
+        /home/pi/.config/modem73/settings
+    ok "modem73 default settings installed (audio=0 for any-hardware start)"
+else
+    ok "modem73 settings already present, leaving alone"
+fi
+
 ok "config files copied"
 
 # Sysctl: node-portal needs CAP_NET_BIND_SERVICE for :80

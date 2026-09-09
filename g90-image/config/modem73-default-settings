@@ -1,0 +1,25 @@
+# MODEM73 default settings — shipped with the overlay.
+#
+# Purpose (per operator 2026-09-09): modem73 refuses to start if its
+# configured audio device index doesn't match any available hardware
+# (the fresh-image default is usually fine, but the operator's TUI may
+# have saved a device index that vanished when hardware moved). Setting
+# audio_input=0 and audio_output=0 makes modem73 use PulseAudio's
+# "default" sink (which is always present, sends silence to nowhere),
+# so the modem73 process boots cleanly and rnsd can carry traffic.
+#
+# This file is the *minimum* set of safe defaults. modem73 --config
+# will only load these lines; everything else falls back to modem73's
+# built-in defaults (callsign=N0CALL, port=8001, ofdm/qpsk/1-2, etc).
+# The operator edits the rest from the Modem73 TUI in the noVNC tab.
+#
+# What this file changes vs. modem73's built-in defaults:
+#   * audio_input  : <whatever> → 0
+#   * audio_output : <whatever> → 0
+#
+# What it does NOT change:
+#   * callsign, port, modulation, CSMA, tx_drive, beacon, etc.
+#   * Operator-saved settings are NEVER overwritten — bootstrap only
+#     copies this file in if ~/.config/modem73/settings doesn't exist.
+audio_input=0
+audio_output=0

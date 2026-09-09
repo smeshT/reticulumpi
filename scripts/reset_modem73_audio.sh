@@ -46,9 +46,32 @@ STOP_SCRIPT="$SCRIPTS_DIR/stop_modem73_loopback.sh"
 
 die() { echo "reset_modem73_audio: $*" >&2; exit "$2"; }
 
-[ -f "$CONFIG" ]   || die "$CONFIG not found" 1
 [ -x "$START_SCRIPT" ] || die "$START_SCRIPT not executable" 2
 [ -x "$STOP_SCRIPT" ]  || die "$STOP_SCRIPT not executable" 2
+
+# If the operator's settings file doesn't exist (fresh flash, or they
+# deleted it), create it from the overlay template so we have a valid
+# file to edit. We never overwrite an existing file here.
+if [ ! -f "$CONFIG" ]; then
+    echo "config not found, creating from overlay template"
+    mkdir -p "$(dirname "$CONFIG")"
+    TEMPLATE="$SCRIPT_DIR/../g90-image/config/modem73-default-settings"
+    if [ -f "$TEMPLATE" ]; then
+        cp "$TEMPLATE" "$CONFIG"
+    else
+        # No template available — write a minimal config that gets
+        # modem73 to "default sink" (audio=0). This is the same
+        # effect as `modem73 -d 0`.
+        cat > "$CONFIG" <<'MINIMAL'
+# MINIMAL modem73 settings — written by reset_modem73_audio.sh
+# because no overlay template was available.
+audio_input=0
+audio_output=0
+MINIMAL
+    fi
+    chown pi:pi "$CONFIG"
+    chmod 0644 "$CONFIG"
+fi
 
 # ---------- snapshot current audio values (for the log) ----------
 before_input=$(grep -E '^audio_input=' "$CONFIG"  | head -1 | cut -d= -f2)

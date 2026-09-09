@@ -1,0 +1,75 @@
+{
+  "release": "v0.6.33",
+  "release_date": "2026-09-09",
+  "image_baseline": "g90digi-2026-08-09",
+  "channel": "https://github.com/smeshT/reticulumpi.git",
+  "branch": "main",
+  "components": {
+    "launcher": {
+      "type": "github-pull",
+      "auto_update": true,
+      "source_path": "/"
+    },
+    "systemd_units": [
+      {
+        "name": "g90-shared-launcher.service",
+        "required": true
+      },
+      {
+        "name": "reticulumhf-rnsd.service",
+        "required": true
+      },
+      {
+        "name": "meshchatx.service",
+        "required": true
+      },
+      {
+        "name": "lxmd.service",
+        "required": true
+      }
+    ],
+    "pip_packages": [
+      {
+        "venv": "rns",
+        "package": "rns",
+        "min_version": "1.4.0"
+      },
+      {
+        "venv": "rns",
+        "package": "lxmf",
+        "min_version": "1.1.0"
+      },
+      {
+        "venv": "reticulum-meshchatx",
+        "package": "reticulum-meshchatx",
+        "min_version": "4.8.0"
+      }
+    ],
+    "config_files": [
+      {
+        "path": "/home/pi/.reticulum/config",
+        "required": true
+      },
+      {
+        "path": "/etc/systemd/system/meshchatx.service",
+        "required": true
+      },
+      {
+        "path": "/usr/local/bin/restart-meshchatx",
+        "required": true,
+        "mode": "0755"
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/start_pavucontrol.sh",
+        "required": true,
+        "mode": "0755"
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/stop_pavucontrol.sh",
+        "required": true,
+        "mode": "0755"
+      }
+    ]
+  },
+  "notes": "v0.6.33: ship default modem73 settings so modem73 starts on a fresh image.\n\nProblem (operator 2026-09-09 15:02 MDT): on a freshly-flashed\nreticulumpi, modem73 refuses to start because the audio device\nin its config file is unset. The operator's workaround was\n'modem73 -d 0' to bypass the audio probe. The \"Reset Audio\"\nbutton on the Modem73 Config TUI row sets audio_input=0 and\naudio_output=0 in ~/.config/modem73/settings \u2014 which is the\nsame thing, but it requires the settings file to exist.\n\nOn a fresh flash, the settings file is created by modem73 on\nfirst run with whatever the device probe returns. If the probe\nfails (or returns a card index that doesn't exist on the next\nboot), modem73 won't start. The Reset Audio button couldn't\nhelp because it required the file to exist.\n\nFix:\n1. Ship g90-image/config/modem73-default-settings \u2014 minimal\n   template with audio_input=0 and audio_output=0.\n2. Bootstrap copies it to ~/.config/modem73/settings ONLY if\n   the file doesn't exist. Operator's TUI-edited settings are\n   never overwritten.\n3. reset_modem73_audio.sh now creates the file from the\n   overlay template if it's missing (instead of dying with\n   'CONFIG not found'). Falls back to a hardcoded minimal\n   config if the template isn't found.\n\nEffect:\n* Fresh flash: modem73 starts immediately because the config\n  has audio=0 (default PulseAudio sink, always works).\n* Audio device moved: operator clicks Reset Audio on the\n  Modem73 row \u2192 audio=0 \u2192 modem73 starts.\n* No more 'modem73 -d 0' workaround needed.\n* No new UI: existing button now works on fresh images."
+}
