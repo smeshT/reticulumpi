@@ -224,17 +224,32 @@ pipx --version
 
 ```bash
 # Block 4: pipx venvs (the launcher's Reticulum stack)
-pipx install freedvtnc2
-pipx install lxmf
-pipx install reticulum-meshchatx
+#
+# CRITICAL: the launcher's component check does `import RNS` and
+# `import lxmf` from the rns venv, not from a separate lxmf venv.
+# So we install lxmf INTO the rns venv via `pipx inject`, not as
+# its own `pipx install lxmf`. Otherwise the component check
+# reports "lxmf not installed" even though `lxmd` works.
+#
+# Also: rns must be at 1.4.0+ (ReticulumHF base ships 1.1.3, which
+# is too old). Force-upgrade to 1.4.2 to match g90digi.
+
+pipx install --force rns==1.4.2
+pipx inject rns lxmf
 ```
 
 ## verify
 
 ```bash
-for pkg in freedvtnc2 lxmf reticulum-meshchatx; do
+for pkg in freedvtnc2 reticulum-meshchatx; do
     pipx list --short | grep -q "^${pkg} " && echo "OK: $pkg" || echo "MISSING: $pkg"
 done
+
+# rns and lxmf both live in the rns venv
+/home/pi/.local/pipx/venvs/rns/bin/python -c "import RNS; print('RNS:', RNS.__version__)"
+# expected: RNS: 1.4.2
+/home/pi/.local/pipx/venvs/rns/bin/python -c "import lxmf; print('lxmf:', lxmf.__version__)"
+# expected: lxmf: 1.1.x
 
 # Confirm the binaries are on PATH
 for b in freedvtnc2 lxmd reticulum-meshchatx; do
