@@ -36,11 +36,14 @@ over USB.
 3. **Open the control panel.** In your phone's web
    browser, go to:
 
-   - **Main panel:** `http://192.168.4.1/` or
-     `http://<your-hostname>.local/`
-   - **App launcher:** same address, port 8090 — click
-     "Open Shared Launcher" on the main panel, or go
-     to `http://<your-hostname>.local:8090/` directly
+   - **Main panel:** `http://192.168.4.1/`
+   - **App launcher:** `http://192.168.4.1/` (same
+     address — the launcher is the home page once
+     wifi is configured)
+   - **ReticulumHF wizard:** `http://192.168.4.1:8080/`
+     (use this to re-detect radio / audio / serial;
+     also runs automatically the first time you visit
+     `http://192.168.4.1/`)
 
    You should see a dark-themed page with rows of
    buttons for the radio apps (FLrig, JS8Call, FLDigi,
@@ -70,6 +73,16 @@ Below the app rows:
   it back.
 - **Wifi** — links to the wifi setup page (the one
   you used to get here).
+- **ReticulumHF** — links to the ReticulumHF setup
+  wizard. **Use this to fix freedvtnc2 audio config.**
+  If the freedvtnc2 service won't start because the
+  audio device is wrong, click ReticulumHF, re-pick
+  your radio from the dropdown, and the wizard will
+  re-detect audio + serial and rewrite the freedvtnc2
+  command in `/etc/reticulumhf/config.env`. The
+  freedvtnc2 systemd service and the freedvtnc2 chat
+  TUI both read this file, so re-running the wizard
+  fixes both at once.
 - **Old Apps** — the original app control page.
 - **Reboot** — restarts the Pi (~60s downtime).
 - **Shutdown** — powers off the Pi. You'll need to
@@ -141,7 +154,15 @@ Below the app rows:
 - **AP IP:** `192.168.4.1`
 - **Web UIs:**
   - Wifi setup: port 80 (`http://192.168.4.1/`)
-  - Shared launcher: port 8090 (`http://192.168.4.1:8090/`)
+  - Shared launcher: port 80 (`http://192.168.4.1/`) —
+    same port as wifi setup; the launcher is the home
+    page once the wifi is configured
+  - **ReticulumHF wizard: port 8080
+    (`http://192.168.4.1:8080/`)** — use this to
+    re-detect audio / serial / radio and rewrite
+    `/etc/reticulumhf/config.env`. The freedvtnc2
+    service and the freedvtnc2 chat TUI both read that
+    file.
   - Old apps page: port 80, `/apps` path
   - Pat web UI: port 5000, `/ui` path (only available
     after clicking Pat Menu: Start)

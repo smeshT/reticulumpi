@@ -1,0 +1,75 @@
+{
+  "release": "v0.6.38",
+  "release_date": "2026-09-09",
+  "image_baseline": "g90digi-2026-08-09",
+  "channel": "https://github.com/smeshT/reticulumpi.git",
+  "branch": "main",
+  "components": {
+    "launcher": {
+      "type": "github-pull",
+      "auto_update": true,
+      "source_path": "/"
+    },
+    "systemd_units": [
+      {
+        "name": "g90-shared-launcher.service",
+        "required": true
+      },
+      {
+        "name": "reticulumhf-rnsd.service",
+        "required": true
+      },
+      {
+        "name": "meshchatx.service",
+        "required": true
+      },
+      {
+        "name": "lxmd.service",
+        "required": true
+      }
+    ],
+    "pip_packages": [
+      {
+        "venv": "rns",
+        "package": "rns",
+        "min_version": "1.4.0"
+      },
+      {
+        "venv": "rns",
+        "package": "lxmf",
+        "min_version": "1.1.0"
+      },
+      {
+        "venv": "reticulum-meshchatx",
+        "package": "reticulum-meshchatx",
+        "min_version": "4.8.0"
+      }
+    ],
+    "config_files": [
+      {
+        "path": "/home/pi/.reticulum/config",
+        "required": true
+      },
+      {
+        "path": "/etc/systemd/system/meshchatx.service",
+        "required": true
+      },
+      {
+        "path": "/usr/local/bin/restart-meshchatx",
+        "required": true,
+        "mode": "0755"
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/start_pavucontrol.sh",
+        "required": true,
+        "mode": "0755"
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/stop_pavucontrol.sh",
+        "required": true,
+        "mode": "0755"
+      }
+    ]
+  },
+  "notes": "v0.6.38: document the ReticulumHF wizard as the fix for freedvtnc2 audio.\n\nOperator's note (2026-09-09 15:42 MDT): the launcher page\nshould tell users to use the ReticulumHF button to set up\nfreedvtnc2 audio, not hand-edit /etc/reticulumhf/config.env.\nThe wizard correctly maps ALSA card N to freedvtnc2's\nPortAudio device ID; hand-editing is wrong because the\ntwo number spaces don't match.\n\nDocumented in two places:\n- README.md: added a TL;DR block under \"Operating a\n  deployed box\" that points to the wizard and explains\n  why hand-editing is wrong.\n- g90-image/QUICK-START.md: added a ReticulumHF entry to\n  the \"What the buttons do\" list, updated the first-time\n  setup steps to mention port 8080, and updated the Web\n  UIs list at the bottom to reflect the new port layout\n  (launcher :80, wizard :8080, not the old :8090).\n\nThe QUICK-START.md is the document the operator hands to\na new box owner; this change makes the right fix path\ndiscoverable from the first read."
+}
