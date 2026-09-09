@@ -337,11 +337,13 @@ chmod +x /home/pi/.local/bin/start-novnc-session
 ok "start-novnc-session script installed"
 
 # x11vnc password file (random 8 chars)
+# The /etc/x11vnc/ directory is owned by root with 755, so x11vnc -storepasswd
+# needs to run as root to write to it. x11vnc.service runs as pi, so the
+# file needs to be readable by pi (chown pi:pi + chmod 600).
 sudo mkdir -p /etc/x11vnc
 # Generate a random 8-char password (VNC DES auth max is 8 chars)
 NOVNC_PASSWORD=$(tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 8)
-# x11vnc -storepasswd requires the password as an argument
-sudo -u pi x11vnc -storepasswd "$NOVNC_PASSWORD" /etc/x11vnc/passwd
+sudo x11vnc -storepasswd "$NOVNC_PASSWORD" /etc/x11vnc/passwd
 sudo chmod 600 /etc/x11vnc/passwd
 sudo chown pi:pi /etc/x11vnc/passwd
 ok "x11vnc password file created (8 random chars)"
