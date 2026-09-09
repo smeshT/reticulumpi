@@ -1,0 +1,17 @@
+[Unit]
+Description=NoVNC Session (Xvfb + openbox + x11vnc + websockify on :6080)
+After=network.target
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=pi
+Environment=DISPLAY=:1
+Environment=XDG_RUNTIME_DIR=/run/user/1000
+ExecStart=/home/pi/.local/bin/start-novnc-session
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

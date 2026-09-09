@@ -1,0 +1,75 @@
+{
+  "release": "v0.6.21",
+  "release_date": "2026-09-09",
+  "image_baseline": "g90digi-2026-08-09",
+  "channel": "https://github.com/smeshT/reticulumpi.git",
+  "branch": "main",
+  "components": {
+    "launcher": {
+      "type": "github-pull",
+      "auto_update": true,
+      "source_path": "/"
+    },
+    "systemd_units": [
+      {
+        "name": "g90-shared-launcher.service",
+        "required": true
+      },
+      {
+        "name": "reticulumhf-rnsd.service",
+        "required": true
+      },
+      {
+        "name": "meshchatx.service",
+        "required": true
+      },
+      {
+        "name": "lxmd.service",
+        "required": true
+      }
+    ],
+    "pip_packages": [
+      {
+        "venv": "rns",
+        "package": "rns",
+        "min_version": "1.4.0"
+      },
+      {
+        "venv": "rns",
+        "package": "lxmf",
+        "min_version": "1.1.0"
+      },
+      {
+        "venv": "reticulum-meshchatx",
+        "package": "reticulum-meshchatx",
+        "min_version": "4.8.0"
+      }
+    ],
+    "config_files": [
+      {
+        "path": "/home/pi/.reticulum/config",
+        "required": true
+      },
+      {
+        "path": "/etc/systemd/system/meshchatx.service",
+        "required": true
+      },
+      {
+        "path": "/usr/local/bin/restart-meshchatx",
+        "required": true,
+        "mode": "0755"
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/start_pavucontrol.sh",
+        "required": true,
+        "mode": "0755"
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/stop_pavucontrol.sh",
+        "required": true,
+        "mode": "0755"
+      }
+    ]
+  },
+  "notes": "v0.6.21: g90-bootstrap.sh + overlay fixes for fresh ReticulumHF install.\n\nThe build recipe (BUILD.md) was a hand-typed step-by-step that\naccumulated 6+ recipe gaps from this session. The operator\nproposed: replace the manual recipe with a bootstrap script\nthat's tested on a truly fresh box. This release ships the\nscript + the overlay fixes needed for it to work.\n\nOverlay fixes:\n1. g90-image/config/start-novnc-session \u2014 was a stub that\n   used `x11vnc -nopw` (no password!) and bad structure.\n   Replaced with the working version: websockify in\n   foreground, x11vnc reads /etc/x11vnc/passwd, properly\n   backgrounds the others.\n\n2. g90-image/systemd-units/novnc-session.service \u2014 added.\n   Points to /home/pi/.local/bin/start-novnc-session.\n\n3. g90-image/systemd-units/zerotier-one.service \u2014 added.\n   ReticulumHF base's zerotier-one .deb ships a unit file\n   but the bookworm base has it stripped (per today's\n   work). This is the upstream unit content.\n\nNew file:\n- scripts/g90-bootstrap.sh (463 lines, 12 phases):\n  Phase 0: Sanity check (bookworm, aarch64, network, disk)\n  Phase 1: Add ZeroTier apt source\n  Phase 2: apt install (system tools + radio apps + noVNC)\n  Phase 3: pipx (rns 1.4.2 + lxmf inject + freedvtnc2 + meshchatx)\n  Phase 4: modem73 from github releases\n  Phase 5: pre-existing service directories\n  Phase 6: clone reticulumpi + pin to latest tag\n  Phase 7: overlay config + systemd units + x11vnc password\n  Phase 8: prepare-* helpers\n  Phase 9: systemctl daemon-reload + enable --now\n  Phase 10: verify (curl /launcher-status, all components)\n  Phase 11: prompt for ZeroTier network ID + join\n\nThe script is idempotent (re-runnable). It generates a\nrandom 8-char noVNC password, prints it once at the end.\nIt uses `set -euo pipefail` so any failure aborts with a\nclear error.\n\nWhat it does NOT do:\n- Flash the SD card (operator does with Pi Imager)\n- First-boot setup wizard (ReticulumHF base handles it)\n- Operator-specific config (SSID, password, callsign)\n- Image capture (use BUILD.md Step 8 after the build is verified)\n\nTested on: nothing yet. The script was written from\nyesterday's and today's observations; not yet run end-to-end\non a fresh ReticulumHF base. The next session is the\nvalidation pass."
+}

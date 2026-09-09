@@ -1,0 +1,16 @@
+[Unit]
+Description=ZeroTier One
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=notify
+ExecStart=/usr/sbin/zerotier-one
+Restart=on-failure
+RestartSec=5
+KillMode=process
+LimitNOFILE=65536
+AmbientCapabilities=CAP_NETADMIN CAP_NET_RAW
+
+[Install]
+WantedBy=multi-user.target
