@@ -1,0 +1,75 @@
+{
+  "release": "v0.6.39",
+  "release_date": "2026-09-09",
+  "image_baseline": "g90digi-2026-08-09",
+  "channel": "https://github.com/smeshT/reticulumpi.git",
+  "branch": "main",
+  "components": {
+    "launcher": {
+      "type": "github-pull",
+      "auto_update": true,
+      "source_path": "/"
+    },
+    "systemd_units": [
+      {
+        "name": "g90-shared-launcher.service",
+        "required": true
+      },
+      {
+        "name": "reticulumhf-rnsd.service",
+        "required": true
+      },
+      {
+        "name": "meshchatx.service",
+        "required": true
+      },
+      {
+        "name": "lxmd.service",
+        "required": true
+      }
+    ],
+    "pip_packages": [
+      {
+        "venv": "rns",
+        "package": "rns",
+        "min_version": "1.4.0"
+      },
+      {
+        "venv": "rns",
+        "package": "lxmf",
+        "min_version": "1.1.0"
+      },
+      {
+        "venv": "reticulum-meshchatx",
+        "package": "reticulum-meshchatx",
+        "min_version": "4.8.0"
+      }
+    ],
+    "config_files": [
+      {
+        "path": "/home/pi/.reticulum/config",
+        "required": true
+      },
+      {
+        "path": "/etc/systemd/system/meshchatx.service",
+        "required": true
+      },
+      {
+        "path": "/usr/local/bin/restart-meshchatx",
+        "required": true,
+        "mode": "0755"
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/start_pavucontrol.sh",
+        "required": true,
+        "mode": "0755"
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/stop_pavucontrol.sh",
+        "required": true,
+        "mode": "0755"
+      }
+    ]
+  },
+  "notes": "v0.6.39: document the \"do not sudo python3 the launcher\" footgun.\n\nOn 2026-09-09 15:44 MDT, the operator reported that the\nmodem73 TUI \"does not stay running\". Root cause turned out\nto be a self-inflicted footgun: an earlier `sudo python3\n/home/pi/shared_launcher/app.py` invocation had left an\norphan root process holding :80, so systemd's\ng90-shared-launcher.service ExecStart kept failing with\n\"Address already in use\" and entered a 283-iteration\nrestart loop. The visible launcher was the orphan root\nprocess, so Popen()'d children (lxterminal, modem73,\nfreedvtnc2) ran as root and were invisible to the pi\nuser's noVNC tab \u2014 which is why the operator clicked\n\"Modem73 TUI: Start\" and saw nothing.\n\nFix:\n- Killed the orphan root python3 (sudo kill 47581 47584).\n  systemd immediately took over and ran the launcher as\n  User=pi, which is the correct state.\n- Added a long warning comment to\n  g90-image/systemd-units/g90-shared-launcher.service\n  documenting the footgun: do not `sudo python3 ...` the\n  launcher; use `sudo systemctl restart ...` instead.\n- Documented the recovery procedure (pkill the orphan,\n  systemctl restart) for next time it happens.\n\nThe modem73 TUI now works as expected. Same fix unblocks\nfreedvtnc2 Chat and any other UI button that launches a\nPopen child."
+}

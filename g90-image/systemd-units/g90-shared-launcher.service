@@ -1,11 +1,24 @@
 [Unit]
 # /etc/systemd/system/g90-shared-launcher.service
-# Parallel "shared launcher" Flask app for the g90 box. Listens on :8090
-# (same port as sbitx's my-launcher for cross-box consistency).
+# Parallel "shared launcher" Flask app for the g90 box. Listens on :80
+# so wifi clients land on it after the captive-portal redirect. The
+# ReticulumHF setup wizard is on :8080; node-portal (wifi admin) is
+# on :8081. Same port as sbitx's my-launcher for cross-box consistency.
 #
-# This is a sibling of the sbitx box's /home/pi/my_launcher. It runs
-# alongside the g90 box's node-portal (which serves the WiFi setup
-# page on :80); the two apps do not share state.
+# This is a sibling of the sbitx box's /home/pi/my_launcher.
+#
+# DO NOT start the launcher manually with `sudo python3 ...` — that
+# leaves an orphan root process holding :80, while systemd's
+# ExecStart fails with "Address already in use" and the unit enters
+# a restart loop. The launcher's Popen() children inherit root UID,
+# so lxterminal + modem73 + freedvtnc2 launched from the UI run as
+# root and are invisible / inaccessible to the pi user running
+# noVNC. Symptom: clicking "Modem73 TUI: Start" or "freedvtnc2 Chat:
+# Start" opens a window that immediately disappears from the noVNC
+# tab. Fix: `pkill -f 'python3 /home/pi/shared_launcher/app.py'`
+# then `sudo systemctl restart g90-shared-launcher.service`. The
+# right way to test from a shell is `sudo systemctl restart ...`
+# (which goes through systemd and respects User=pi).
 
 [Unit]
 Description=G90 Shared Launcher
