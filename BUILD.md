@@ -191,10 +191,23 @@ cd shared_launcher
 # gets served on port 80; if you skip this, you're running
 # whatever happened to be on main at clone time (usually a
 # SHA that's newer than what's been verified on a fleet box).
-git checkout -f v0.6.12   # or whichever latest is on github
+git checkout -f v0.6.15   # or whichever latest is on github
 # Check https://github.com/smeshT/reticulumpi/releases for
 # the current version. The version after Step 6 should be
 # the same as the version pinned here.
+
+# 1b. Install patmenu2 (prerequisite for the start-pat-ardop
+# overlay patch in step 5 below). patmenu2 is an external
+# project; we don't ship a fork. Clone upstream, then we'll
+# layer our one-file edit on top in step 5.
+git clone https://github.com/la5nta/patmenu2.git /home/pi/patmenu2
+# The repo's README has its own install steps (yad apt dep,
+# config tweaks). The clone is enough to land our overlay
+# patch in step 5; do the rest of patmenu2 setup later.
+
+# 1c. Create pat's config directory (only exists after pat's
+# first run; the overlay cp in step 2 will fail without this).
+mkdir -p /home/pi/.config/pat
 
 # 2. Copy the overlay config files into place
 sudo cp g90-image/config/reticulumhf-config.env /etc/reticulumhf/config.env
@@ -221,7 +234,7 @@ sudo bash g90-image/scripts/prepare-meshchatx-dirs.sh
 sudo bash g90-image/scripts/prepare-lxmd-dirs.sh
 
 # 5. Patch patmenu2 (only the start-pat-ardop edit; we don't
-# ship a fork)
+# ship a fork — patmenu2 was cloned in step 1b)
 sudo cp g90-image/patmenu2-edits/start-pat-ardop /home/pi/patmenu2/start-pat-ardop
 chmod +x /home/pi/patmenu2/start-pat-ardop
 
