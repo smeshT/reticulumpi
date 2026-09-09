@@ -196,15 +196,22 @@ pipx install --force "rns==${RNS_VERSION}" 2>&1 | tail -3
     || fail "rns version check failed"
 ok "rns ${RNS_VERSION} installed"
 
-# Inject lxmf into the rns venv — the launcher's component check does
-# `import lxmf` from the rns venv, not a separate lxmf venv. So we
-# need lxmf in /home/pi/.local/pipx/venvs/rns/lib/.../site-packages/.
+# Two-step lxmf install:
+# 1. pipx install lxmf — creates a standalone lxmd shim in
+#    /home/pi/.local/bin/lxmd (the systemd unit lxmd.service uses this).
+# 2. pipx inject rns lxmf — copies the LXMF package into the rns venv
+#    so the launcher's component check (which does 'import LXMF' from
+#    the rns venv's python) can find it.
+#    NB: pipx inject does NOT create shim symlinks; that's why we
+#    do BOTH steps.
+pipx install lxmf 2>&1 | tail -3
 pipx inject rns lxmf 2>&1 | tail -3
 # lxmf installs as package 'lxmf' but the Python module is 'LXMF' (uppercase)
 # — see site-packages/LXMF in the rns venv. Import the right name.
 /home/pi/.local/pipx/venvs/rns/bin/python -c "import LXMF; print(f'lxmf {LXMF.__version__}')" \
     || fail "lxmf not in rns venv (pipx inject rns lxmf may have failed)"
-ok "lxmf injected into rns venv"
+command -v lxmd >/dev/null || fail "lxmd shim not on PATH (pipx install lxmf may have failed)"
+ok "lxmf installed (lxmd shim + LXMF in rns venv)"
 
 # Other venvs (separate, isolated)
 pipx install freedvtnc2 2>&1 | tail -3
