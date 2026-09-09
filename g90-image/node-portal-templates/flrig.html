@@ -1,0 +1,143 @@
+<!doctype html>
+
+<html>
+<head>
+    <title>FLRIG</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <style>
+        body {
+            font-family: Arial, sans-serif;
+            font-size: 16px;
+            margin: 20px;
+            line-height: 1.5;
+            padding-bottom: 50px;
+        }
+
+        button {
+            font-size: 16px;
+            padding: 12px 20px;
+            margin-top: 10px;
+            margin-bottom: 10px;
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .app-row {
+            display: flex;
+            gap: 10px;
+            max-width: 400px;
+        }
+
+        .app-row form {
+            flex: 1;
+        }
+
+        a {
+            text-decoration: none;
+        }
+
+        span {
+            display: block;
+            margin-bottom: 15px;
+        }
+    </style>
+
+</head>
+
+<body>
+
+<h1>FLRIG</h1>
+
+<h2>About</h2>
+
+<p>FLrig allows for a couple more radio control options from the computer than the 
+    digital apps do by themselves. The frequency is a little easier to change from FlRig
+    but it also allow for the remote use of the G90's TUNE function for antenna tuning. <br>
+    If you decide to use FLrig you will need to ensure that the digital app you choose
+    is set for FLrig. The radio settings for the digital apps are covered in the instructions for those apps.
+</p>
+<h2>Getting Started</h2>
+<p>To get started click the Start button for the digital app you want to use below.</p>
+
+
+<div class="app-row">
+    <form action="/restart-app-help" method="post">
+        <input type="hidden" name="app" value="fldigi">
+        <button type="submit">Start FLdigi</button>
+    </form>
+    <form action="/close-app" method="post">
+        <input type="hidden" name="app" value="fldigi">
+        <button type="submit">Close FLdigi</button>
+    </form>
+</div>
+
+<div class="app-row">
+    <form action="/restart-app-help" method="post">
+        <input type="hidden" name="app" value="js8call">
+        <button type="submit">Start JS8Call</button>
+    </form>
+    <form action="/close-app" method="post">
+        <input type="hidden" name="app" value="js8call">
+        <button type="submit">Close JS8Call</button>
+    </form>
+</div>
+
+<div class="app-row">
+    <form action="/restart-app-help" method="post">
+        <input type="hidden" name="app" value="wsjtx">
+        <button type="submit">Start FT8</button>
+    </form>
+    <form action="/close-app" method="post">
+        <input type="hidden" name="app" value="wsjtx">
+        <button type="submit">Close FT8</button>
+    </form>
+</div>
+<div class="app-row">
+    <form action="/restart-app-help" method="post">
+        <input type="hidden" name="app" value="flrig">
+        <button type="submit">Restart FLrig</button>
+    </form>
+    <form action="/close-app" method="post">
+        <input type="hidden" name="app" value="flrig">
+        <button type="submit">Close FLrig</button>
+    </form>
+</div>
+<form action="/start-text-editor" 
+    method="post"
+    target="_blank"
+>
+    <button type="submit">Text Editor</button>
+</form>
+
+<hr>
+<form
+    action="/start-pavucontrol"
+    method="post"
+    target="_blank"
+>
+    <button type="submit">PavuControl</button>
+    <span>Adjust Audio Levels</span>
+</form>
+
+<button type="button" onclick="window.location.href='/apps'">
+    Back to Apps
+</button>
+<hr>
+<h4>Radio Settings</h4>
+<p>
+    - Config > Setup > Transceiver to bring up the Configuration window. <br>
+    - Under the Xcvr branch, set the Rig to Xiegu-G90.<br>
+        - Set Update to /dev/ttyUSB0. <br>
+        - Set the Baud to 119200. <br>
+        - Check the box for 1. <br>
+    - Under the PTT-Generic branch, leave CW mode PTT unchecked. <br>
+        - PTT on CAT Serial Port; CAT to SET, RTS to SET and DTR to OFF. <br>
+        - RTS +12 and DTS +12 unchecked. <br>
+        - PTT control on seperate serial port; Port to NONE. <br>
+</p>
+
+
+
+</body>
+</html>

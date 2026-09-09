@@ -1,0 +1,155 @@
+<!doctype html>
+
+<html>
+<head>
+    <title>FLDIGI</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <style>
+        body {
+            font-family: Arial, sans-serif;
+            font-size: 16px;
+            margin: 20px;
+            line-height: 1.5;
+            padding-bottom: 50px;
+        }
+
+        button {
+            font-size: 16px;
+            padding: 12px 20px;
+            margin-top: 10px;
+            margin-bottom: 10px;
+            width: 100%;
+            max-width: 400px;
+        }
+        heading, h1, h2, h3, h4, h5 {
+            margin-bottom: 2px;
+            margin-top: 2px;
+        }
+
+        .app-row {
+            display: flex;
+            gap: 10px;
+            max-width: 400px;
+        }
+
+        .app-row form {
+            flex: 1;
+        }
+
+        a {
+            text-decoration: none;
+        }
+
+        span {
+            display: block;
+            margin-bottom: 15px;
+        }
+    </style>
+
+</head>
+
+<body>
+
+<h1>FLDIGI Instructions</h1>
+
+<h2>Getting Started</h2>
+
+<h4>Choose configuration</h4>
+<p>
+    - To use FLDIGI as a standalone app with rig control, go to File > Config Scripts > Execute. Select g90_script.txt and click Ok.<br>
+    - To use FLDIGI with FLRig, go to go to File > Config Scripts > Execute. Select FLRIG_script.txt and click Ok.<br>
+    <br>
+    - If error messages still appear regarding audio settings click below to... <br>
+</p>
+
+<form
+    action="/reset-audio-devices-fldigi"
+    method="post"
+>
+    <button type="submit">Reset Audio Devices</button>
+</form>
+<p>And then here to...</p>
+
+<div class="app-row">
+    <form
+         action="/restart-app-help" 
+         method="post">
+        <input type="hidden" name="app" value="fldigi">
+        <button type="submit">Restart FLdigi</button>
+    </form>
+
+    <form action="/close-app" method="post">
+        <input type="hidden" name="app" value="fldigi">
+        <button type="submit">Close FLdigi</button>
+    </form>
+</div>
+<h5> FLrig Controls </h5>
+<div class="app-row">
+    <form action="/restart-app-help" method="post">
+        <input type="hidden" name="app" value="flrig">
+        <button type="submit">Start FLrig</button>
+    </form>
+    <form action="/close-app" method="post">
+        <input type="hidden" name="app" value="flrig">
+        <button type="submit">Close FLrig</button>
+    </form>
+</div>
+<form action="/start-text-editor" 
+    method="post"
+    target="_blank"
+>
+    <button type="submit">Text Editor</button>
+</form>
+
+<hr>
+<form
+    action="/start-pavucontrol"
+    method="post"
+    target="_blank"
+>
+    <button type="submit">PavuControl</button>
+    <span>Adjust Audio Levels</span>
+</form>
+
+<button type="button" onclick="window.location.href='/apps'">
+    Back to Apps
+</button>
+
+<h3>SOPs</h3>
+<p>My Callsign: <br> My Maidenhead Grid Locator:</p>
+
+<h2> Operation </h2>
+
+<h2>Settings</h2>
+<h4>User Settings</h4>
+<p>
+    - File > Settings to open the settings window. <br>
+    - Under the General tab, and the Station sub-tab: <br> 
+        set the Callsign and Grid Square fields to your callsign and grid square.
+</p>
+<h4>Radio Settings</h4>
+<p>
+    - File > Settings <br>
+    - Under the Radio tab, set the Rig Type to G90.<br>
+    - Under the CAT Control sub-tab, set the Serial Port to /dev/ttyUSB0. <br>
+    - Set the Rig Baud to 119200. <br>
+    - Data Bits to 8 and Stop Bits to 1. <br>
+    - Handshake to Default. <br>
+    - Force Control Lines; DTR to Low and RTS to Low. <br>
+    - Click Test CAT Settings. the button will turn green if the settings are correct. <br>
+    - Then click Test PTT. The button will turn red while PTT is active and then back to gray when clicked again. <br>
+    - Click OK to save the settings.
+</p>
+<h4>Audio Settings</h4>
+<p>
+    - File > Settings <br>
+    - Under the Audio tab Modulation Soundcard Input is: alsa_input class=usb-C-Media_Electronics_Inc _USB_Audio_Device-00.mono-fallback. <br>
+    - output is: alsa_output class=usb-C-Media_Electronics_Inc _USB_Audio_Device-00.analog-stereo. <br>
+    - Click OK to save the settings.
+</p>
+
+
+
+</body>
+</html>

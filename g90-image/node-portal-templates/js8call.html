@@ -1,0 +1,181 @@
+<!doctype html>
+
+<html>
+<head>
+    <title>JS8CALL</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <style>
+        body {
+            font-family: Arial, sans-serif;
+            font-size: 16px;
+            margin: 20px;
+            line-height: 1.5;
+            padding-bottom: 50px;
+        }
+
+        button {
+            font-size: 16px;
+            padding: 12px 20px;
+            margin-top: 10px;
+            margin-bottom: 10px;
+            width: 100%;
+            max-width: 400px;
+        }
+        heading, h1, h2, h3, h4, h5 {
+            margin-bottom: 2px;
+            margin-top: 2px;
+        }
+
+        .app-row {
+            display: flex;
+            gap: 10px;
+            max-width: 400px;
+        }
+
+        .app-row form {
+            flex: 1;
+        }
+
+        a {
+            text-decoration: none;
+        }
+
+        span {
+            display: block;
+            margin-bottom: 15px;
+        }
+    </style>
+
+</head>
+
+<body>
+
+<h1>JS8CALL Instructions</h1>
+
+<h2>Getting Started</h2>
+
+<h4>Choose configuration</h4>
+<p>
+    - To use JS8CALL without FlRig, in JS8CALL go to Configuration > G90 > Switch to. <br>
+    - To use JS8CALL with FlRig, in JS8CALL go to Configuration > G90_FLRIG > Switch to.<br>
+    <br>
+    If error messages still appear regarding audio settings<br>
+    - First check the settings for the use of FlRig above are correct. <br>
+    
+    - If the errors are still there click below to... <br>
+</p>
+
+<form
+    action="/reset-audio-devices"
+    method="post"
+>
+<input type="hidden" name="app" value="js8call">
+   
+<button type="submit">Reset Audio Devices</button>
+    <span>Use this if you have audio issues with the audio devices.</span>
+</form>
+<p>And then here to...</p>
+
+<div class="app-row">
+    <form
+         action="/restart-app-help" 
+         method="post">
+        <input type="hidden" name="app" value="js8call">
+        <button type="submit">Restart JS8Call</button>
+    </form>
+
+    <form action="/close-app" method="post">
+        <input type="hidden" name="app" value="js8call">
+        <button type="submit">Close JS8Call</button>
+    </form>
+</div>
+<h5> FLrig Controls </h5>
+<div class="app-row">
+    <form action="/restart-app-help" method="post">
+        <input type="hidden" name="app" value="flrig">
+        <button type="submit">Start FLrig</button>
+    </form>
+    <form action="/close-app" method="post">
+        <input type="hidden" name="app" value="flrig">
+        <button type="submit">Close FLrig</button>
+    </form>
+</div>
+
+<hr>
+<form action="/start-text-editor" 
+    method="post"
+    target="_blank"
+>
+    <button type="submit">Text Editor</button>
+</form>
+
+<form
+    action="/start-pavucontrol"
+    method="post"
+>
+    <input type="hidden" name="app" value="js8call">
+    <button type="submit">PavuControl</button>
+    <span>Adjust Audio Levels. </span>
+</form>
+
+<button type="button" onclick="window.location.href='/apps'">
+    Back to Apps
+</button>
+
+<h3>SOPs</h3>
+<p>My Callsign: <br> My Maidenhead Grid Locator: <br> Freq: <br> Mode: JS8 Normal <br>
+Offset: <br> PavuControl Input: 75%</p>
+
+
+<h2> Operation </h2>
+<p>- Change callsign and grid according to SOP<br>
+- Set the frequency (freq) to the pre-arranged frequency <br>
+- Set the mode to the JS8 normal for initial contact. Mode > JS8 (Normal...) <br>
+- Set the offset by clicking in the waterfall display in an area that is clear of signals. <br>
+- Type your outgoing message in the text box where it says to and hit Enter to transmit. 
+Your message will turn red when it has been sent. JS8Call is time referenced so it 
+may not send immediately when you hit Enter. It will wait for the next time slot to 
+send the message. <br>
+- To reply to a message, click on the message and then type your reply in the 
+outgoing message box. <br>
+- If the dynamic scale in the lower left is turning red frequently then the Input Level
+needs to be reduced. Click the PavuControl button above (restarts JS8Call) and adjust the
+input level for the USB audio device down until the dynamic scale is green and the pointer
+is hovering around 60-70. <br>
+</p>
+<h2>Settings</h2>
+<h4>User Settings. These will be changed frequently</h4>
+<p>
+    - File > Settings to open the settings window. <br>
+    - Under the General tab, and the Station sub-tab: <br> 
+        set the Callsign and Grid Square fields to your callsign and grid square.
+</p>
+<h4>Radio Settings. These are only for reference if something gets messed up.</h4>
+<p>
+    - File > Settings <br>
+    - Under the Radio tab, set the Rig Type to G90.<br>
+    - Under the CAT Control sub-tab, set the Serial Port to /dev/ttyUSB0. <br>
+    - Set the Rig Baud to 119200. <br>
+    - Data Bits to 8 and Stop Bits to 1. <br>
+    - Handshake to Default. <br>
+    - Force Control Lines; DTR to Low and RTS to Low. <br>
+    - Click Test CAT Settings. the button will turn green if the settings are correct. <br>
+    - Then click Test PTT. The button will turn red while PTT is active and then 
+    back to gray when clicked again. <br>
+    - Click OK to save the settings.
+</p>
+<h4>Audio Settings. For reference.</h4>
+<p>
+    - File > Settings <br>
+    - Under the Audio tab Modulation Soundcard Input is: 
+    alsa_input class=usb-C-Media_Electronics_Inc _USB_Audio_Device-00.mono-fallback. <br>
+    - output is: 
+    alsa_output class=usb-C-Media_Electronics_Inc _USB_Audio_Device-00.analog-stereo. <br>
+    - Click OK to save the settings.
+</p>
+
+
+
+</body>
+</html>

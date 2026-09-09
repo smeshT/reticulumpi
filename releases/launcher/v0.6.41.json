@@ -1,0 +1,75 @@
+{
+  "release": "v0.6.41",
+  "release_date": "2026-09-09",
+  "image_baseline": "g90digi-2026-08-09",
+  "channel": "https://github.com/smeshT/reticulumpi.git",
+  "branch": "main",
+  "components": {
+    "launcher": {
+      "type": "github-pull",
+      "auto_update": true,
+      "source_path": "/"
+    },
+    "systemd_units": [
+      {
+        "name": "g90-shared-launcher.service",
+        "required": true
+      },
+      {
+        "name": "reticulumhf-rnsd.service",
+        "required": true
+      },
+      {
+        "name": "meshchatx.service",
+        "required": true
+      },
+      {
+        "name": "lxmd.service",
+        "required": true
+      }
+    ],
+    "pip_packages": [
+      {
+        "venv": "rns",
+        "package": "rns",
+        "min_version": "1.4.0"
+      },
+      {
+        "venv": "rns",
+        "package": "lxmf",
+        "min_version": "1.1.0"
+      },
+      {
+        "venv": "reticulum-meshchatx",
+        "package": "reticulum-meshchatx",
+        "min_version": "4.8.0"
+      }
+    ],
+    "config_files": [
+      {
+        "path": "/home/pi/.reticulum/config",
+        "required": true
+      },
+      {
+        "path": "/etc/systemd/system/meshchatx.service",
+        "required": true
+      },
+      {
+        "path": "/usr/local/bin/restart-meshchatx",
+        "required": true,
+        "mode": "0755"
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/start_pavucontrol.sh",
+        "required": true,
+        "mode": "0755"
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/stop_pavucontrol.sh",
+        "required": true,
+        "mode": "0755"
+      }
+    ]
+  },
+  "notes": "v0.6.41: ship the node-portal per-app help pages (flrig, fldigi, js8call, wsjtx, scan).\n\nThe v0.6.40 node-portal install only had 3 templates\n(index.html, apps.html, wifi.html). The help route\n/help/<app_name> returns 500 because the help pages\n(flrig.html, fldigi.html, js8call.html, wsjtx.html)\ndidn't exist in the overlay \u2014 they were on g90digi but\nnever checked in. scan.html is needed for the /scan\nPOST result.\n\nThis v0.6.41 pulls those 5 templates from g90digi and\nships them in g90-image/node-portal-templates/. The\nbootstrap's existing `*.html` glob picks them up\nautomatically.\n\nEffect: launcher app help links (FLrig, JS8Call, FLDigi,\nWSJT-X) now load instead of 500. The /scan wifi page\nrenders the scan results."
+}
