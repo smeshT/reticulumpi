@@ -15,7 +15,7 @@ medium.
 Built with much AI assistance; Openclaw and Minimax M3
 
 ## Build from script
-Check for the latest version availabe and replace <latest-version> in the block below.
+Check for the latest version availabe and replace `<latest-version>` in the block below.
 
 ``` bash
 curl -sL https://raw.githubusercontent.com/smeshT/reticulumpi/<latest-version>/scripts/reticulumpi-bootstrap.sh -o /tmp/reticulumpi-bootstrap.sh
