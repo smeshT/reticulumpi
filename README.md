@@ -18,23 +18,27 @@ medium.
 Built with much AI assistance; Openclaw and Minimax M3
 
 ## Build from script
-Flash a fresh Raspberry Pi OS Lite 64-bit image to an SD card or USB drive with 
-Raspberry pi imager. If using a USB dongle on the pi for wifi connection
-set the network SSID and password using "Apply OS customization" -->
-Edit Settings.
+1. Flash a fresh Raspberry Pi OS Lite 64-bit image to an SD card or USB
+drive with Raspberry pi imager. If using a USB wifi dongle on the pi for
+wifi connection set the network SSID and password using "Apply OS
+customization" --> Edit Settings.
 
-Boot pi with created image and connect to pi (if using dongle and setup
-configured prior to flash, this is automatic; or ethernet to router; or
-connect to pi AP wifi connection; SSID ReticulumHF, pw reticulumhf)
+3. Boot pi with created image and connect pi to internet access with one
+of the ways below.
+- if using dongle and setup configured prior to flash, this is automatic
+- ethernet to router; 
 
 **Note 1st boot will take 5+ min until ready to connect**
 
-Once connected open a terminal and SSH in. Copy and paste the block below.
+4. Once connected open a terminal on a connected device and copy and paste
+the block below. pi@reticulumpi's password is `reticulumpi`.
 
 ``` bash
+ssh pi@reticulumpi.local
 curl -sSL https://raw.githubusercontent.com/smeshT/reticulumpi/main/scripts/reticulumpi-bootstrap.sh | bash
 ```
-
+If you are building multiple copies you will get an SSH warning, clear with
+`ssh-keygen -R reticulumpi.local`
 
 ## What's here
 check [Releases](releases/README.md) for up to date list.
