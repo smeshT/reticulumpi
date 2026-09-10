@@ -58,6 +58,19 @@ RETICULUMHF_FORK_REPO="https://github.com/smeshT/ReticulumHF"
 RETICULUMHF_VERSION="v1.0.0-fork.1"
 RETICULUMHF_TARBALL_URL="https://github.com/${RETICULUMHF_FORK_REPO#https://github.com/}/releases/download/${RETICULUMHF_VERSION}/reticulumhf-${RETICULUMHF_VERSION}.tar.gz"
 
+# Build-time settings. Each of these can be overridden three ways,
+# in priority order:
+#   1. Environment variable (e.g. RETICULUMPI_HOSTNAME=foo)
+#   2. Pi Imager customisation files (read by Phase 1.5)
+#   3. Default (here)
+# If the AP password or pi password is still the default after
+# the build, Phase 1.5 prints a loud warning.
+RETICULUMPI_HOSTNAME="${RETICULUMPI_HOSTNAME:-reticulumpi}"
+RETICULUMPI_SSID="${RETICULUMPI_SSID:-ReticulumPi}"
+RETICULUMPI_AP_PASSWORD="${RETICULUMPI_AP_PASSWORD:-CHANGE_ME_BEFORE_FLASH}"
+RETICULUMPI_WIFI_COUNTRY="${RETICULUMPI_WIFI_COUNTRY:-US}"
+RETICULUMPI_PI_PASSWORD="${RETICULUMPI_PI_PASSWORD:-reticulumpi}"
+
 # ============================================================================
 # PATH
 # ============================================================================
@@ -165,6 +178,147 @@ fi
 # The ReticulumHF systemd units expect to be enabled but not started
 # at this point. Phase 9 will daemon-reload and enable them.
 ok "ReticulumHF components in place: setup-portal, configs, systemd units"
+
+# ============================================================================
+# Phase 1.5: Apply build-time settings (hostname, SSID, passwords, country)
+# ============================================================================
+# Reads the build-time env vars (RETICULUMPI_*) and applies them to the
+# freshly vendored ReticulumHF configs. Idempotent — re-running with
+# different values updates the configs in place.
+#
+# Source priority for each setting:
+#   1. Env var (e.g. RETICULUMPI_HOSTNAME=foo bash reticulumpi-bootstrap.sh)
+#   2. Pi Imager customisation file (if /boot/firstrun.sh or cloud-init
+#      user-data is present, parse it for hostname/password/wifi)
+#   3. Default in this script's config block
+#
+# After applying, prints a loud warning if the AP password is still the
+# default. The box WILL work with the default password (it's the
+# ReticulumHF upstream default) but anyone within wifi range can connect.
+
+phase "Phase 1.5: Apply build-time settings"
+
+# --- 1.5a: Pi Imager customisation parsing -----------------------------
+# Pi Imager writes a firstrun.sh to /boot (FAT32 partition, mounted at
+# /boot/firmware on some Pi OS versions). The file contains lines like:
+#   set_hostname() { echo "g90digi"; }
+# or
+#   echo "pi:mynewpassword" | chpasswd
+# or
+#   cat > /etc/hostapd/hostapd.conf <<EOF
+#   ssid=MyAP
+#   wpa_passphrase=mypassword
+#   EOF
+# We parse out the most useful bits and use them as defaults if env
+# vars weren't set. The full firstrun.sh is run by Pi OS itself later
+# (we don't execute it here — we just harvest the values).
+
+if [ -f /boot/firstrun.sh ] && [ -z "${RETICULUMPI_HOSTNAME_FORCED:-}" ]; then
+    if grep -q "RETICULUMPI_HOSTNAME\|set_hostname" /boot/firstrun.sh 2>/dev/null; then
+        pi_hostname=$(grep -oE 'set_hostname\(\) \{ echo "[^"]+"' /boot/firstrun.sh | \
+                      grep -oE '"[^"]+"' | tr -d '"' | head -1)
+        if [ -n "$pi_hostname" ] && [ "$RETICULUMPI_HOSTNAME" = "reticulumpi" ]; then
+            RETICULUMPI_HOSTNAME="$pi_hostname"
+            ok "hostname from Pi Imager firstrun.sh: $RETICULUMPI_HOSTNAME"
+        fi
+    fi
+    if grep -q 'chpasswd' /boot/firstrun.sh 2>/dev/null; then
+        pi_password=$(grep -oE 'echo "pi:[^"]+"' /boot/firstrun.sh | \
+                      head -1 | sed 's/.*echo "pi://' | sed 's/"$//')
+        if [ -n "$pi_password" ] && [ "$RETICULUMPI_PI_PASSWORD" = "reticulumpi" ]; then
+            RETICULUMPI_PI_PASSWORD="$pi_password"
+            ok "pi password from Pi Imager firstrun.sh (length: ${#pi_password})"
+        fi
+    fi
+    if grep -q 'country=' /boot/firstrun.sh 2>/dev/null; then
+        pi_country=$(grep -oE 'country=[A-Z][A-Z]' /boot/firstrun.sh | head -1 | cut -d= -f2)
+        if [ -n "$pi_country" ] && [ "$RETICULUMPI_WIFI_COUNTRY" = "US" ]; then
+            RETICULUMPI_WIFI_COUNTRY="$pi_country"
+            ok "WiFi country from Pi Imager firstrun.sh: $RETICULUMPI_WIFI_COUNTRY"
+        fi
+    fi
+fi
+
+# --- 1.5b: hostname -----------------------------------------------------
+phase "Phase 1.5b: Set hostname to '$RETICULUMPI_HOSTNAME'"
+echo "$RETICULUMPI_HOSTNAME" | sudo tee /etc/hostname > /dev/null
+sudo sed -i "s/^127.0.1.1.*/127.0.1.1\t$RETICULUMPI_HOSTNAME/" /etc/hosts
+ok "hostname set to $RETICULUMPI_HOSTNAME"
+
+# --- 1.5c: hostapd (SSID + AP password + country) ----------------------
+phase "Phase 1.5c: Configure hostapd (SSID='$RETICULUMPI_SSID', country='$RETICULUMPI_WIFI_COUNTRY')"
+# The ReticulumHF vendor tarball extracts /etc/hostapd/hostapd.conf
+# with the upstream default SSID. We rewrite it with our settings.
+sudo tee /etc/hostapd/hostapd.conf > /dev/null <<EOF
+# ReticulumPi hostapd config — generated by reticulumpi-bootstrap.sh
+# DO NOT edit /opt/reticulumhf/configs/hostapd.conf; this is the
+# actual deployed config. The vendor copy is a template.
+interface=wlan0
+driver=nl80211
+ssid=$RETICULUMPI_SSID
+hw_mode=g
+channel=7
+wmm_enabled=0
+macaddr_acl=0
+auth_algs=1
+ignore_broadcast_ssid=0
+wpa=2
+wpa_passphrase=$RETICULUMPI_AP_PASSWORD
+wpa_key_mgmt=WPA-PSK
+rsn_pairwise=CCMP
+country_code=$RETICULUMPI_WIFI_COUNTRY
+ieee80211n=1
+EOF
+sudo chmod 600 /etc/hostapd/hostapd.conf
+ok "hostapd.conf written (SSID=$RETICULUMPI_SSID, country=$RETICULUMPI_WIFI_COUNTRY)"
+
+# --- 1.5d: /etc/reticulumhf/config.env (ReticulumHF wizard) -------------
+phase "Phase 1.5d: Update /etc/reticulumhf/config.env with our values"
+sudo mkdir -p /etc/reticulumhf
+sudo tee /etc/reticulumhf/config.env > /dev/null <<EOF
+# ReticulumPi config.env — generated by reticulumpi-bootstrap.sh
+# Sourced by the ReticulumHF setup wizard on first boot.
+
+# Box identity
+BOX_HOSTNAME=$RETICULUMPI_HOSTNAME
+BOX_SSID=$RETICULUMPI_SSID
+BOX_WIFI_COUNTRY=$RETICULUMPI_WIFI_COUNTRY
+
+# Radio (Xiegu G90 / QYT KT-8900D default)
+RADIO_ID=xiegu_g90
+SERIAL_PORT=/dev/ttyUSB0
+AUDIO_CARD=3
+FREEDV_MODE=DATAC1
+EOF
+ok "/etc/reticulumhf/config.env written"
+
+# --- 1.5e: pi user password -------------------------------------------
+phase "Phase 1.5e: Set pi user password"
+if [ "$RETICULUMPI_PI_PASSWORD" = "reticulumpi" ]; then
+    warn "pi password is the default 'reticulumpi' — change it via:"
+    warn "  sudo passwd pi"
+    warn "or set RETICULUMPI_PI_PASSWORD env var and re-run."
+else
+    echo "pi:$RETICULUMPI_PI_PASSWORD" | sudo chpasswd
+    ok "pi password updated (length: ${#RETICULUMPI_PI_PASSWORD})"
+fi
+
+# --- 1.5f: AP password warning ----------------------------------------
+if [ "$RETICULUMPI_AP_PASSWORD" = "CHANGE_ME_BEFORE_FLASH" ]; then
+    warn ""
+    warn "================================================================"
+    warn "  AP PASSWORD IS STILL THE DEFAULT PLACEHOLDER"
+    warn "  SSID: $RETICULUMPI_SSID"
+    warn "  Anyone within wifi range can connect with the default."
+    warn ""
+    warn "  To fix: re-run the build with RETICULUMPI_AP_PASSWORD set,"
+    warn "  or edit /etc/hostapd/hostapd.conf on the box and restart"
+    warn "  hostapd. The ReticulumHF setup wizard can also change it."
+    warn "================================================================"
+    warn ""
+elif [ "${#RETICULUMPI_AP_PASSWORD}" -lt 8 ]; then
+    warn "AP password is shorter than 8 chars; hostapd may reject it."
+fi
 
 # ============================================================================
 # Phase 2: apt sources
