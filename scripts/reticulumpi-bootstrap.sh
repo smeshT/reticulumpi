@@ -453,7 +453,16 @@ ok "node-portal.service enabled + started"
 # modem73 default settings (audio=0 so modem73 starts on any hardware).
 # Only written if the file doesn't exist — operator's TUI-edited settings
 # are never overwritten by the bootstrap.
+#
+# v0.6.47 fix: the parent dir /home/pi/.config/modem73 doesn't exist
+# on a fresh ReticulumHF flash (the base image doesn't ship it),
+# and `install` doesn't auto-create parent dirs. The previous
+# bootstrap left this step to fail with `install: cannot create
+# regular file ...: No such file or directory` and the whole
+# `set -e` script bailed here. mkdir -p first, then install.
 if [ ! -f /home/pi/.config/modem73/settings ]; then
+    sudo mkdir -p /home/pi/.config/modem73
+    sudo chown pi:pi /home/pi/.config/modem73
     sudo install -o pi -g pi -m 0644 \
         g90-image/config/modem73-default-settings \
         /home/pi/.config/modem73/settings

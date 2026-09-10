@@ -1,0 +1,75 @@
+{
+  "release": "v0.6.47",
+  "release_date": "2026-09-09",
+  "image_baseline": "g90digi-2026-08-09",
+  "channel": "https://github.com/smeshT/reticulumpi.git",
+  "branch": "main",
+  "components": {
+    "launcher": {
+      "type": "github-pull",
+      "auto_update": true,
+      "source_path": "/"
+    },
+    "systemd_units": [
+      {
+        "name": "g90-shared-launcher.service",
+        "required": true
+      },
+      {
+        "name": "reticulumhf-rnsd.service",
+        "required": true
+      },
+      {
+        "name": "meshchatx.service",
+        "required": true
+      },
+      {
+        "name": "lxmd.service",
+        "required": true
+      }
+    ],
+    "pip_packages": [
+      {
+        "venv": "rns",
+        "package": "rns",
+        "min_version": "1.4.0"
+      },
+      {
+        "venv": "rns",
+        "package": "lxmf",
+        "min_version": "1.1.0"
+      },
+      {
+        "venv": "reticulum-meshchatx",
+        "package": "reticulum-meshchatx",
+        "min_version": "4.8.0"
+      }
+    ],
+    "config_files": [
+      {
+        "path": "/home/pi/.reticulum/config",
+        "required": true
+      },
+      {
+        "path": "/etc/systemd/system/meshchatx.service",
+        "required": true
+      },
+      {
+        "path": "/usr/local/bin/restart-meshchatx",
+        "required": true,
+        "mode": "0755"
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/start_pavucontrol.sh",
+        "required": true,
+        "mode": "0755"
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/stop_pavucontrol.sh",
+        "required": true,
+        "mode": "0755"
+      }
+    ]
+  },
+  "notes": "v0.6.47: bootstrap mkdir -p /home/pi/.config/modem73 before install.\n\nOperator reported 2026-09-09 21:50 MDT: bootstrap dies\non a fresh flash with:\n\n  install: cannot create regular file\n  '/home/pi/.config/modem73/settings': No such file or directory\n\nRoot cause: the modem73 .deb install in Phase 4 puts\nthe binary at /usr/bin/modem73, but the user's config\ndir is NOT created. The base ReticulumHF image doesn't\nship /home/pi/.config/modem73. The Phase 7 overlay\nblock that copies the default settings file used\n`install`, which does not create parent directories.\n`set -e` then bailed the whole script before the\nsysctl drop-in and Phase 9 systemctl enable steps\nran, leaving the box with the ReticulumHF base\nservices but no g90-shared-launcher.service, no\nmeshchatx.service, etc. (only node-portal made it\nthrough because it's enabled via `tee`, not via\nthe systemd unit copy loop).\n\nThis is the same class of bug as the v0.6.44\n\"for-loop with single failure aborts\" hardening,\nbut a step earlier in the script. The whole overlay\nis supposed to be idempotent \u2014 re-running should\nfinish the install, not bail.\n\nFix: mkdir -p the parent dir before the install.\nThe dir is owned by pi:pi and is empty on a fresh\nflash; the install writes the settings file into it.\n\nDiscovered 2026-09-09 21:50 MDT on a freshly-flashed\nreticulumpi box where the v0.6.46 bootstrap was\nrunning for the first time and died at this step."
+}
