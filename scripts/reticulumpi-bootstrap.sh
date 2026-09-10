@@ -67,7 +67,7 @@ RETICULUMHF_TARBALL_URL="https://github.com/${RETICULUMHF_FORK_REPO#https://gith
 # the build, Phase 1.5 prints a loud warning.
 RETICULUMPI_HOSTNAME="${RETICULUMPI_HOSTNAME:-reticulumpi}"
 RETICULUMPI_SSID="${RETICULUMPI_SSID:-ReticulumPi}"
-RETICULUMPI_AP_PASSWORD="${RETICULUMPI_AP_PASSWORD:-CHANGE_ME_BEFORE_FLASH}"
+RETICULUMPI_AP_PASSWORD="${RETICULUMPI_AP_PASSWORD:-reticulumpi}"
 RETICULUMPI_WIFI_COUNTRY="${RETICULUMPI_WIFI_COUNTRY:-US}"
 RETICULUMPI_PI_PASSWORD="${RETICULUMPI_PI_PASSWORD:-reticulumpi}"
 
@@ -343,18 +343,17 @@ else
     ok "pi password updated (length: ${#RETICULUMPI_PI_PASSWORD})"
 fi
 
-# --- 1.5f: AP password warning ----------------------------------------
-if [ "$RETICULUMPI_AP_PASSWORD" = "CHANGE_ME_BEFORE_FLASH" ]; then
+# --- 1.5f: AP password note -------------------------------------------
+# The default AP password is 'reticulumpi' (same as the box hostname)
+# for simplicity. Users on first boot can ssh in with these credentials.
+# We print a soft reminder that the default is well-known, not a
+# hard error — the operator can intentionally ship with it.
+if [ "$RETICULUMPI_AP_PASSWORD" = "reticulumpi" ]; then
     warn ""
-    warn "================================================================"
-    warn "  AP PASSWORD IS STILL THE DEFAULT PLACEHOLDER"
-    warn "  SSID: $RETICULUMPI_SSID"
-    warn "  Anyone within wifi range can connect with the default."
-    warn ""
-    warn "  To fix: re-run the build with RETICULUMPI_AP_PASSWORD set,"
-    warn "  or edit /etc/hostapd/hostapd.conf on the box and restart"
-    warn "  hostapd. The ReticulumHF setup wizard can also change it."
-    warn "================================================================"
+    warn "  Note: AP password is the default 'reticulumpi'."
+    warn "  Anyone reading the public repo can join the AP."
+    warn "  Change via the ReticulumHF wizard (http://192.168.4.1)"
+    warn "  or by editing /etc/hostapd/hostapd.conf and restarting hostapd."
     warn ""
 elif [ "${#RETICULUMPI_AP_PASSWORD}" -lt 8 ]; then
     warn "AP password is shorter than 8 chars; hostapd may reject it."
