@@ -18,7 +18,7 @@ medium.
 Built with much AI assistance; Openclaw and Minimax M3
 
 ## Build from script
-Flash a fresh [ReticulumHF](https://github.com/LFManifesto/ReticulumHF/releases/tag/v1.0) image to an SD card or USB drive with 
+Flash a fresh Raspberry Pi OS Lite 64-bit image to an SD card or USB drive with 
 Raspberry pi imager. If using a USB dongle on the pi for wifi connection
 set the network SSID and password using "Apply OS customization" -->
 Edit Settings.
