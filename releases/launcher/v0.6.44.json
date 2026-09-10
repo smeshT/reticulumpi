@@ -1,0 +1,75 @@
+{
+  "release": "v0.6.44",
+  "release_date": "2026-09-09",
+  "image_baseline": "g90digi-2026-08-09",
+  "channel": "https://github.com/smeshT/reticulumpi.git",
+  "branch": "main",
+  "components": {
+    "launcher": {
+      "type": "github-pull",
+      "auto_update": true,
+      "source_path": "/"
+    },
+    "systemd_units": [
+      {
+        "name": "g90-shared-launcher.service",
+        "required": true
+      },
+      {
+        "name": "reticulumhf-rnsd.service",
+        "required": true
+      },
+      {
+        "name": "meshchatx.service",
+        "required": true
+      },
+      {
+        "name": "lxmd.service",
+        "required": true
+      }
+    ],
+    "pip_packages": [
+      {
+        "venv": "rns",
+        "package": "rns",
+        "min_version": "1.4.0"
+      },
+      {
+        "venv": "rns",
+        "package": "lxmf",
+        "min_version": "1.1.0"
+      },
+      {
+        "venv": "reticulum-meshchatx",
+        "package": "reticulum-meshchatx",
+        "min_version": "4.8.0"
+      }
+    ],
+    "config_files": [
+      {
+        "path": "/home/pi/.reticulum/config",
+        "required": true
+      },
+      {
+        "path": "/etc/systemd/system/meshchatx.service",
+        "required": true
+      },
+      {
+        "path": "/usr/local/bin/restart-meshchatx",
+        "required": true,
+        "mode": "0755"
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/start_pavucontrol.sh",
+        "required": true,
+        "mode": "0755"
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/stop_pavucontrol.sh",
+        "required": true,
+        "mode": "0755"
+      }
+    ]
+  },
+  "notes": "v0.6.44: bootstrap hardened to recover from partial runs.\n\nOperator reported 2026-09-09 19:50 MDT: on a freshly-flashed\nReticulumHF box where the bootstrap had been run earlier, :80\nwas the ReticulumHF wizard, not the launcher; the launcher\nwasn't running at all.\n\nDiagnosis: the bootstrap had completed phases 0-6 (apt\ninstall, pipx venvs, modem73 .deb, repo clone) and got part\nof the way through phase 7 (overlay config + systemd units)\nbut died before the for-loop that copies systemd units. So\nthe box had:\n- node-portal installed (created via `tee`, not the for-loop)\n- drop-in for the wizard created\n- BUT: g90-shared-launcher.service, meshchatx.service, lxmd,\n  pat-http, novnc-session, zerotier-one NOT installed\n- BUT: modem73 default settings NOT installed\n- BUT: Reticulum config [[Modem73]] block NOT appended\n- AND: the wizard (running with pre-drop-in env) was still\n  bound to :80, so the launcher's bind on :80 would have\n  failed even if the unit had been installed\n\nThree fixes:\n1. The systemd unit for-loop now wraps each `cp` in `|| true`\n   so a single failure doesn't abort the whole phase.\n2. After the wizard's drop-in is created, the script now\n   `systemctl restart reticulumhf-portal` to force the wizard\n   to re-read its environment and bind :8080 instead of :80.\n3. Phase 9 now kills any stale root python3 holding :80\n   (from a manual `sudo python3 ...` invocation) and any\n   stale wizard on :80 (running with the pre-drop-in env),\n   so a re-run of the bootstrap recovers the box from the\n   broken state instead of just being a no-op.\n\nEffect: the bootstrap is now safe to re-run after a partial\nor interrupted execution. Operators (or any future automated\nagent) can simply `bash /tmp/reticulumpi-bootstrap.sh` again\nto repair a half-installed box.\n\nThe reticulumpi box at 192.168.1.145 was hand-recovered\nduring this session by running the same steps the bootstrap\nwould have run: copy units, install modem73 settings, append\n[[Modem73]] block, restart wizard, kill stale processes.\nAll 12 components now match v0.6.43."
+}

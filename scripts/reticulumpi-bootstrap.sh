@@ -391,7 +391,17 @@ sudo tee /etc/systemd/system/reticulumhf-portal.service.d/port.conf >/dev/null <
 Environment="PORT=8080"
 EOF
 sudo systemctl daemon-reload
-ok "wizard bound to :8080 (PORT=8080 in drop-in)"
+# Force a restart so the wizard actually binds :8080. Without this,
+# if the wizard was started before the drop-in was created (very
+# common on a fresh flash — the wizard auto-starts on first boot,
+# and the bootstrap's first run typically races against that), the
+# running wizard process still has the old env and is bound to :80.
+# Restarting here moves it. v0.6.44 fix: the script used to assume
+# the patch + drop-in were sufficient, but a stale running wizard
+# would survive until the next reboot.
+sudo systemctl restart reticulumhf-portal 2>/dev/null \
+    || warn "wizard restart failed (will try again at phase 9)"
+ok "wizard bound to :8080 (PORT=8080 in drop-in, restart issued)"
 
 sudo cp g90-image/config/hostapd.conf /etc/hostapd/hostapd.conf
 sudo cp g90-image/config/pat-config.json /home/pi/.config/pat/config.json
@@ -457,19 +467,26 @@ ok "config files copied"
 # Sysctl: node-portal needs CAP_NET_BIND_SERVICE for :80
 # (it's in the launcher's existing setup; ReticulumHF base handles it)
 
-# Systemd units
+# Systemd units. Each copy is wrapped in || true so a single
+# failed copy doesn't abort the whole phase (an earlier partial
+# run might have left one in place; the next phase will skip it
+# if already enabled). v0.6.44 hardening: original loop bailed
+# on any single cp failure, leaving the box with only the units
+# that were already present (typically just node-portal).
 for unit in g90-shared-launcher.service meshchatx.service lxmd.service \
             pat-http.service novnc-session.service zerotier-one.service; do
     if [ -f "g90-image/systemd-units/$unit" ]; then
-        sudo cp "g90-image/systemd-units/$unit" /etc/systemd/system/
+        sudo cp "g90-image/systemd-units/$unit" /etc/systemd/system/ || warn "cp $unit failed (non-fatal)"
+    else
+        warn "missing unit source: g90-image/systemd-units/$unit"
     fi
 done
 # restart-meshchatx is a binary, not a unit
 if [ -f g90-image/systemd-units/restart-meshchatx ]; then
-    sudo cp g90-image/systemd-units/restart-meshchatx /usr/local/bin/
-    sudo chmod +x /usr/local/bin/restart-meshchatx
+    sudo cp g90-image/systemd-units/restart-meshchatx /usr/local/bin/ || warn "cp restart-meshchatx failed (non-fatal)"
+    sudo chmod +x /usr/local/bin/restart-meshchatx 2>/dev/null || true
 fi
-ok "systemd units + binary copied"
+ok "systemd units + binary copied (tolerating partial state)"
 
 # start-novnc-session script (different path — pi's local bin)
 mkdir -p /home/pi/.local/bin
@@ -518,6 +535,35 @@ phase "Phase 9: systemctl daemon-reload + enable --now"
 
 sudo systemctl daemon-reload
 ok "daemon-reload"
+
+# IMPORTANT: kill any stale root python3 on :80 from a manual
+# `sudo python3 /home/pi/shared_launcher/app.py` that the
+# operator (or a previous bootstrap run) may have left behind.
+# systemd's ExecStart won't bind :80 if a stale root process
+# already has it; systemd then enters a 283-iteration restart
+# loop and the launcher's children (started by Popen, running
+# as root) are invisible to the pi user's noVNC tab. Footgun
+# documented in memory/2026-09-09-...; v0.6.39 fix; v0.6.44
+# adds the kill here so a re-run of the bootstrap recovers
+# from this state.
+if pgrep -af 'python3 /home/pi/shared_launcher/app.py' | grep -v 'pgrep' | head -1 | grep -q '^root'; then
+    warn "stale root python3 on :80 found; killing"
+    sudo pkill -9 -f 'python3 /home/pi/shared_launcher/app.py' || true
+    sleep 1
+fi
+
+# IMPORTANT: kill any stale wizard on :80 (running with the
+# pre-drop-in env). The drop-in sets PORT=8080 but a wizard
+# started before the drop-in keeps its old environment. The
+# systemctl restart at the end of phase 7b should have moved
+# it, but if that step errored (or the unit wasn't yet
+# installed when phase 7 ran), the wizard might still be on
+# :80 holding the port. Kill it; systemd will restart it
+# with the new env.
+if pgrep -af 'setup-portal/app.py' | grep -q ':80\|/usr/bin/python3 /opt/reticulumhf'; then
+    sudo pkill -9 -f 'setup-portal/app.py' || true
+    sleep 1
+fi
 
 # Our overlay services
 for svc in g90-shared-launcher.service \
