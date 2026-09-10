@@ -37,35 +37,20 @@ curl -sSL https://raw.githubusercontent.com/smeshT/reticulumpi/main/scripts/reti
 
 
 ## What's here
+check [Releases](releases/launcher/README.md) for up to date list.
 
-- **`scripts/`** — 
-- **`memory/`** — 
-- **`g90-image/QUICK-START.html` / `.pdf`** — printable end-user
-  manual for a deployed box.
+**Ham Apps/Modems**
+ReticulumHF web UI
+js8call
+fldigi and flrig
+WSJT-X
+Modem73
+freedvtnc2
+PAT (not working)
+Pat Menu (not working)
+ARDOP (not working)
+MeshchatX
 
-## Operating a deployed box
-
-If you already have a reticulumpi box flashed and want to use it:
-see [`g90-image/QUICK-START.md`](g90-image/QUICK-START.md). It's
-the end-user manual — what the buttons do, how to connect your
-radio, what to do if something breaks.
-
-**TL;DR for common operations:**
-
-- **freedvtnc2 audio is wrong / TUI button says "audio
-  device not found"** → open the ReticulumHF setup wizard
-  at `http://<box>:8080/`, re-pick your radio from the
-  dropdown, and click Start Gateway. The wizard rewrites
-  `/etc/reticulumhf/config.env` with the right `AUDIO_CARD`
-  and the right `FREEDVTNC2_CMD` (PortAudio device ID,
-  which is what freedvtnc2's `--input-device` actually
-  wants). The freedvtnc2 systemd service and the freedvtnc2
-  chat TUI both read this file, so re-running the wizard
-  fixes both at once. Don't hand-edit the file; let the
-  wizard generate it.
-
-For build problems: open an issue at
-<https://github.com/smeshT/reticulumpi/issues>.
 
 ## Architecture
 
@@ -76,11 +61,6 @@ For build problems: open an issue at
 - **Radio Interface** DigiRig or Xiegu CE/DE-19 (for G90) sound card (USB)
 - **FTDI cable** for CAT control (USB)
 - **SanDisk Ultra Fit** USB drive (28 GB minimum)
-
-## Project notes
-
-The full deploy history, lessons learned, and policy documentation
-is in `memory/g90-project.md`.
 
 ## Credits
 
