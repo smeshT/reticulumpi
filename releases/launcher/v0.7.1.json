@@ -1,0 +1,77 @@
+{
+  "release": "v0.7.1",
+  "release_date": "2026-09-09",
+  "image_baseline": "g90digi-2026-08-09",
+  "channel": "https://github.com/smeshT/reticulumpi.git",
+  "branch": "main",
+  "components": {
+    "launcher": {
+      "type": "github-pull",
+      "auto_update": true,
+      "source_path": "/"
+    },
+    "systemd_units": [
+      {
+        "name": "g90-shared-launcher.service",
+        "required": true
+      },
+      {
+        "name": "reticulumhf-rnsd.service",
+        "required": true
+      },
+      {
+        "name": "meshchatx.service",
+        "required": true
+      },
+      {
+        "name": "lxmd.service",
+        "required": true
+      }
+    ],
+    "pip_packages": [
+      {
+        "venv": "rns",
+        "package": "rns",
+        "min_version": "1.4.0"
+      },
+      {
+        "venv": "rns",
+        "package": "lxmf",
+        "min_version": "1.1.0"
+      },
+      {
+        "venv": "reticulum-meshchatx",
+        "package": "reticulum-meshchatx",
+        "min_version": "4.8.0"
+      }
+    ],
+    "config_files": [
+      {
+        "path": "/home/pi/.reticulum/config",
+        "required": true
+      },
+      {
+        "path": "/etc/systemd/system/meshchatx.service",
+        "required": true
+      },
+      {
+        "path": "/usr/local/bin/restart-meshchatx",
+        "required": true,
+        "mode": "0755"
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/start_pavucontrol.sh",
+        "required": true,
+        "mode": "0755"
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/stop_pavucontrol.sh",
+        "required": true,
+        "mode": "0755"
+      }
+    ]
+  },
+  "notes": "v0.7.1: Config backup / restore \u2014 milestone release.\n\nThis release wraps the v0.6.46 \u2192 v0.6.49 sequence of\nincremental fixes into a single milestone. Backup and\nrestore of the g90 box's whitelisted config is now a\nfirst-class feature of the launcher, with a standalone\nshell-script path for boxes that can't run the\nlauncher (e.g. g90f1r2 on ECG_Guest wifi).\n\nWhat's new in v0.7.1:\n\n1. Launcher's /backup-configs and /restore-configs\n   routes (v0.6.46).\n\n   - GET /backup-configs: download a tar.gz of the\n     live box's whitelisted config. A copy is also\n     kept on the box at\n     /home/pi/shared_launcher/backups/, rotated to\n     the last 5 archives.\n   - GET /restore-configs: upload form, plus a list\n     of the last 5 on-box archives (no need to\n     download + re-upload).\n   - POST /restore-configs/preview: extract to a\n     staging dir, diff against live files, render\n     a table showing add/replace/skip per file,\n     plus a confirm button.\n   - POST /restore-configs/apply/<token>: copy\n     staged files to live paths, wipe the staging\n     dir, restart affected services.\n   - POST /restore-configs/cancel/<token>: wipe\n     staging, return to upload form.\n\n   Whitelist (closed, 15 entries): Reticulum config,\n   ReticulumHF config.env, pat, modem73, ardopc,\n   direwolf, js8call, fldigi, flrig, wsjtx, hamlib,\n   pavucontrol.ini, hostapd, dhcp, patmenu2. The\n   whitelist is identical between the launcher and\n   the shell scripts.\n\n   Box-specific (per op 21:38 MDT): captures\n   include the box's Reticulum identity. Restoring\n   to a different box gives the new box the old\n   box's identity on the mesh.\n\n   Replace-all restore (per op 21:40 MDT) with\n   dry-run preview.\n   Rotate last 5 (per op 21:40 MDT).\n\n2. Standalone shell scripts (v0.6.49) for boxes\n   that can't run the launcher.\n\n   - scripts/capture-config.sh: capture the live\n     box's whitelisted config. No dependencies\n     beyond bash + tar + standard coreutils.\n   - scripts/restore-config.sh: two-step\n     (preview + apply) restore. Whitelist-validated\n     (rejects tarballs with non-whitelisted paths,\n     as a path-traversal guard). Sudo fallback for\n     root-owned files (e.g. pat config.json).\n   - scripts/box-backup-flow.sh: convenience\n     wrapper for ssh+scp from m5boss. Run as\n       bash box-backup-flow.sh <src>\n       bash box-backup-flow.sh <src> --send <dst>\n\n   The tarball format is identical to the\n   launcher's /backup-configs output: gzipped,\n   paths without leading /, fixed archive mtime.\n   Tarballs are interchangeable between the\n   launcher and the shell scripts.\n\n3. Bootstrap hardening (v0.6.44, v0.6.47): the\n   reticulumpi-bootstrap.sh is now resilient to\n   partial runs. The for-loop that copies systemd\n   units uses || true; the modem73 settings install\n   mkdir -p's the parent dir before installing.\n   A mid-bootstrap crash (e.g. on apt + 10 min\n   network install) no longer leaves the box\n   with only the units that happened to make it\n   to /etc/systemd/system/.\n\n4. Operator-facing addition: the launcher index\n   page has Backup and Restore links in the\n   version row, alongside Update and Check\n   Components.\n\nEnd-to-end tested:\n\n  - On m5boss (dev box): full Flask test client\n    cycle (upload \u2192 preview \u2192 apply \u2192 file written,\n    staging wiped, 410 Gone on bad token).\n  - On g90test (live dev box, v0.6.13 \u2192 v0.6.49):\n    shell scripts run against the live box\n    without the launcher, capture 6 paths\n    included / 9 skipped, restore --apply\n    writes 7 files (5 direct, 2 via sudo fallback\n    for root-owned files).\n  - Whitelist safety: a tarball containing\n    /etc/passwd is rejected before extraction\n    with a clear error message.\n\nFiles added in v0.7.1:\n\n  scripts/config_backup.py      (~400 lines, helper module)\n  scripts/capture-config.sh     (~7 KB, standalone capture)\n  scripts/restore-config.sh     (~10 KB, standalone restore)\n  scripts/box-backup-flow.sh    (~2 KB, ssh+scp wrapper)\n\nNet diff since v0.6.43: ~1100 lines added, ~30 lines\nmodified. The launcher grew from 1467 lines to ~1700\nlines, with 6 new routes.\n\nOperator usage (g90f1r2, can't reach the launcher):\n\n  # On a machine that can reach f1r2 (e.g. laptop\n  # on ECG_Guest):\n  scp https://raw.githubusercontent.com/smeshT/reticulumpi/main/scripts/capture-config.sh pi@g90f1r2.local:/tmp/\n  ssh pi@g90f1r2.local 'bash /tmp/capture-config.sh'\n  scp pi@g90f1r2.local:/home/pi/g90-configs-g90f1r2-*.tar.gz .\n  # Then either:\n  #   - upload to a launcher-equipped box's /restore-configs\n  #   - scp to a freshly-flashed box and:\n  bash restore-config.sh <tarball> --apply --yes\n\nOperator usage (g90digi, can reach the launcher):\n\n  # From any browser on the same LAN/ZT as the box:\n  http://g90digi.local/backup-configs\n    -> downloads g90-configs-g90digi-<ver>-<ts>.tar.gz\n    -> also persists a copy to\n       /home/pi/shared_launcher/backups/ (rotated to last 5)\n\n  # To restore on the same box (e.g. after a config\n  # edit went wrong) or to a different box:\n  http://<box>/restore-configs\n    -> upload the tarball\n    -> preview the diff\n    -> click Apply",
+  "milestone": true,
+  "milestone_summary": "Config backup / restore is a first-class feature of the launcher. Standalone shell scripts cover boxes that can't run the launcher (g90f1r2 on ECG_Guest wifi). Bootstrap hardened to recover from partial runs. 11 incremental releases in the v0.6.4x series tested and shipped since v0.6.43."
+}
