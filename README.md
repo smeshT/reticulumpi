@@ -26,7 +26,10 @@ Edit Settings.
 Boot pi with created image and connect to pi (if using dongle and setup
 configured prior to flash, this is automatic; or ethernet to router; or
 connect to pi AP wifi connection; SSID ReticulumHF, pw reticulumhf)
+
 **Note 1st boot will take 5+ min until ready to connect**
+
+Once connected open a terminal and SSH in. Copy and paste the block below.
 
 ``` bash
 curl -sSL https://raw.githubusercontent.com/smeshT/reticulumpi/main/scripts/reticulumpi-bootstrap.sh | bash
