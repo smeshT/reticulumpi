@@ -1,0 +1,75 @@
+{
+  "release": "v0.6.45",
+  "release_date": "2026-09-09",
+  "image_baseline": "g90digi-2026-08-09",
+  "channel": "https://github.com/smeshT/reticulumpi.git",
+  "branch": "main",
+  "components": {
+    "launcher": {
+      "type": "github-pull",
+      "auto_update": true,
+      "source_path": "/"
+    },
+    "systemd_units": [
+      {
+        "name": "g90-shared-launcher.service",
+        "required": true
+      },
+      {
+        "name": "reticulumhf-rnsd.service",
+        "required": true
+      },
+      {
+        "name": "meshchatx.service",
+        "required": true
+      },
+      {
+        "name": "lxmd.service",
+        "required": true
+      }
+    ],
+    "pip_packages": [
+      {
+        "venv": "rns",
+        "package": "rns",
+        "min_version": "1.4.0"
+      },
+      {
+        "venv": "rns",
+        "package": "lxmf",
+        "min_version": "1.1.0"
+      },
+      {
+        "venv": "reticulum-meshchatx",
+        "package": "reticulum-meshchatx",
+        "min_version": "4.8.0"
+      }
+    ],
+    "config_files": [
+      {
+        "path": "/home/pi/.reticulum/config",
+        "required": true
+      },
+      {
+        "path": "/etc/systemd/system/meshchatx.service",
+        "required": true
+      },
+      {
+        "path": "/usr/local/bin/restart-meshchatx",
+        "required": true,
+        "mode": "0755"
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/start_pavucontrol.sh",
+        "required": true,
+        "mode": "0755"
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/stop_pavucontrol.sh",
+        "required": true,
+        "mode": "0755"
+      }
+    ]
+  },
+  "notes": "v0.6.45: toggle_modem73_audio.sh self-heals a malformed [[Modem73]] block.\n\nOperator reported 2026-09-09 20:00 MDT: clicking \"Modem73\nInterface: Start\" on the freshly-built reticulumpi box\nreturned 302 but no modem73 process started and no log\nfile was created. (HTTP 302 = the route ran; 200 on\nreturn = the toggle script exited non-zero.)\n\nRoot cause (a chain of two bugs):\n\n1. The recovery step I ran at 19:53 MDT (when the box was\n   half-installed) appended a malformed [[Modem73]] block:\n\n       [[Modem73]]\n       type=Modem73Interface\n       port=8002\n       control_port=8073\n       mode=roaming\n       announce_cap=1\n\n   This block uses `key=value` (no spaces) and is MISSING\n   the `enabled =` line. The bootstrap's canonical template\n   uses `key = value` and includes `enabled = false`. The\n   recovery template was wrong. (Recovery templates should\n   always match the canonical template, with a one-liner\n   to handle the most common case; an `enabled =` line\n   is the load-bearing line for the toggle script.)\n\n2. When toggle_modem73_audio.sh ran against this malformed\n   block, the python script's re.subn found 0 `enabled =`\n   lines and exited with \"expected 1 enabled= in [[Modem73]]\n   block, found 0\", which became exit 1 from the script.\n   The launcher's run_script swallowed the exit code; the\n   button returned 302 and the operator saw nothing happen.\n\nThe toggle script also had a latent regex bug that the\nmalformed-block failure mode exposed: `r'^\\s*\\[\\[...`\nmatched across newlines because `\\s` includes `\\n`. With\na properly-formatted block, this didn't matter (the\n`[[Modem73]]` line is on its own line so `\\s*` matches\nzero whitespace). With the malformed block (no `[[Modem73]]`\nfollowed by a newline at the matched position), the regex\nwould have matched the previous line's whitespace and\nconsumed the newline. The current block doesn't have\nthat, but fixing the regex prevents the failure mode\nfrom coming back if the operator ever edits the config\nin a way that puts whitespace before the [[Modem73]]\nheader.\n\nFix:\n\n1. The block-finding regex is now `r'^[ \\t]*\\[\\[(?i:...`\n   which only matches leading horizontal whitespace on\n   the same line as the header. The header is no longer\n   reachable across a newline.\n\n2. The script now self-heals: if the [[Modem73]] block\n   exists but has no `enabled =` line, the script\n   INJECTS one (`enabled = <target value>`) after the\n   header, rather than failing. This makes the toggle\n   button robust to any hand-edited config that's missing\n   the load-bearing line.\n\n3. The 19:53 recovery step in the runbook has been\n   replaced with the canonical template (which includes\n   `enabled = false`). Any future recovery will use\n   this template."
+}

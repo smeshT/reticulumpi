@@ -55,7 +55,7 @@ cfg_path, new_val = sys.argv[1], sys.argv[2]
 p = pathlib.Path(cfg_path)
 text = p.read_text()
 
-m_start = re.search(r'^\s*\[\[(?i:Modem73)\]\]', text, re.MULTILINE)
+m_start = re.search(r'^[ \t]*\[\[(?i:Modem73)\]\]', text, re.MULTILINE)
 if not m_start:
     # The Modem73 interface block doesn't exist in the config (fresh
     # install: the bootstrap didn't create it, and the ReticulumHF
@@ -88,6 +88,22 @@ m_nxt = re.search(r'\n\s*\[\[', rest)
 end = m_start.end() + (m_nxt.start() if m_nxt else len(rest))
 
 block = text[start:end]
+# If the [[Modem73]] block exists but lacks an `enabled =` line
+# (recovered by hand or a partial bootstrap run), inject one
+# after the [[Modem73]] header rather than failing. Pattern
+# found 2026-09-09 20:00 MDT: the recovery step at 19:53 MDT
+# appended a malformed block (key=value format, no `enabled`),
+# and the toggle then exited 1 with "expected 1 enabled=,
+# found 0", which left the launcher's button permanently
+# dead. v0.6.45 fix: self-heal on the spot.
+if not re.search(r'(?m)^\s*enabled\s*=', block):
+    inject_at = m_start.end()  # right after the [[Modem73]] header
+    new_text = text[:inject_at] + '\n  enabled = ' + new_val + text[inject_at:]
+    tmp = p.with_suffix('.config.toggle.tmp')
+    tmp.write_text(new_text)
+    tmp.replace(p)
+    print('injected `enabled = ' + new_val + '` into existing [[Modem73]] block (no enabled= line was present)')
+    sys.exit(0)
 new_block, n = re.subn(
     r'(?m)^(\s*)#.*$|^(\s*)enabled\s*=[^\n]*',
     lambda mm: (mm.group(0) if mm.group(2) is None
