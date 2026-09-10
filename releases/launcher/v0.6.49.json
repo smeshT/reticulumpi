@@ -1,0 +1,75 @@
+{
+  "release": "v0.6.49",
+  "release_date": "2026-09-09",
+  "image_baseline": "g90digi-2026-08-09",
+  "channel": "https://github.com/smeshT/reticulumpi.git",
+  "branch": "main",
+  "components": {
+    "launcher": {
+      "type": "github-pull",
+      "auto_update": true,
+      "source_path": "/"
+    },
+    "systemd_units": [
+      {
+        "name": "g90-shared-launcher.service",
+        "required": true
+      },
+      {
+        "name": "reticulumhf-rnsd.service",
+        "required": true
+      },
+      {
+        "name": "meshchatx.service",
+        "required": true
+      },
+      {
+        "name": "lxmd.service",
+        "required": true
+      }
+    ],
+    "pip_packages": [
+      {
+        "venv": "rns",
+        "package": "rns",
+        "min_version": "1.4.0"
+      },
+      {
+        "venv": "rns",
+        "package": "lxmf",
+        "min_version": "1.1.0"
+      },
+      {
+        "venv": "reticulum-meshchatx",
+        "package": "reticulum-meshchatx",
+        "min_version": "4.8.0"
+      }
+    ],
+    "config_files": [
+      {
+        "path": "/home/pi/.reticulum/config",
+        "required": true
+      },
+      {
+        "path": "/etc/systemd/system/meshchatx.service",
+        "required": true
+      },
+      {
+        "path": "/usr/local/bin/restart-meshchatx",
+        "required": true,
+        "mode": "0755"
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/start_pavucontrol.sh",
+        "required": true,
+        "mode": "0755"
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/stop_pavucontrol.sh",
+        "required": true,
+        "mode": "0755"
+      }
+    ]
+  },
+  "notes": "v0.6.49: standalone shell scripts for backup/restore.\n\nPer operator 2026-09-09 21:56 MDT: \"can you make a .sh\nversion we can put on g90f1r2 since it cannot be updated\nproperly.\"\n\ng90f1r2 (ZT 10.59.42.236) is on the ECG_Guest wifi\nnetwork, which m5boss can't reach. The launcher's Update\nbutton does `git fetch` from the v0.6.4x release, which\nneeds the launcher service to be reachable. The launcher's\nown /launcher-update route needs m5boss to have set the\ncorrect release; the loop is broken on a box m5boss\ncan't see.\n\nStandalone scripts (don't require the launcher):\n\nscripts/capture-config.sh\n\n  Run on the source box as pi:\n    bash capture-config.sh [out-dir]\n\n  Captures the same whitelist as the v0.6.46 launcher's\n  /backup-configs route (Reticulum config, ReticulumHF\n  config.env, pat, modem73, ardopc, direwolf, js8call,\n  fldigi, flrig, wsjtx, hamlib, pavucontrol.ini, hostapd,\n  dhcp, patmenu2). Whitelist is closed (no globs); to\n  add a path, edit CONFIG_PATHS and ship a new release.\n\n  Output: g90-configs-<hostname>-<version>-<ts>.tar.gz\n  in the chosen dir. Mode 644 so the operator can scp it\n  back without sudo.\n\n  Box-specific (per op 21:38 MDT): includes the box's\n  Reticulum identity.\n\nscripts/restore-config.sh\n\n  Run on the target box as pi:\n    bash restore-config.sh <tarball>            # preview\n    bash restore-config.sh <tarball> --apply    # apply\n    bash restore-config.sh <tarball> --apply --yes\n                                              # apply, no prompt\n\n  Two-step flow matching the launcher's:\n    1. preview: extract to /tmp/<basename>-stage/,\n       diff against live files, print add/replace/skip\n       per file. Whitelist-validated \u2014 a tarball that\n       contains paths NOT in the whitelist is rejected\n       (path-traversal guard). Same whitelist as capture.\n    2. apply: copy staged files to live paths, fallback\n       to `sudo -n install -D -o pi -g pi -m 0644`\n       for root-owned files (e.g. /home/pi/.config/pat/\n       config.json, which the pat .deb creates as\n       root:root).\n\n  After apply, the operator restarts the affected\n  services (the script prints the systemctl line):\n    sudo systemctl restart g90-shared-launcher \\\n        reticulumhf-rnsd meshchatx freedvtnc2\n\nscripts/box-backup-flow.sh\n\n  Convenience wrapper. Run from m5boss:\n    bash box-backup-flow.sh g90f1r2\n        # ssh in, push capture-config.sh, run it,\n        # pull tarball back\n    bash box-backup-flow.sh g90f1r2 --send g90digi\n        # capture from f1r2, push to digi, run restore\n\n  Note: ssh from m5boss to g90f1r2 doesn't currently\n  work (different wifi). This wrapper is the right shape\n  for the future when f1r2 IS reachable (e.g. via\n  ZeroTier), or for a different box that's reachable.\n\nThe tarball format is identical to the v0.6.46 launcher's\n/backup-configs output: gzipped, paths without leading\n/, per-file mtimes preserved, archive mtime normalized\nto 2026-09-09 12:00:00 UTC. A tarball from either tool\ncan be read by the other.\n\nTested on m5boss with a fake pi home fixture: capture\nproduces a 358-byte tarball with 6 members (4 files + 2\ndirectory entries), restore preview correctly identifies\nall 4 files as unchanged when the live state matches\nthe tarball."
+}
