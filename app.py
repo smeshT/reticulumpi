@@ -1,7 +1,8 @@
-from flask import Flask, render_template, redirect, url_for, request
+from flask import Flask, render_template, redirect, url_for, request, send_file
 import subprocess
 import os
 import re
+import sys
 
 app = Flask(__name__)
 
@@ -15,6 +16,16 @@ LAUNCHER_DIR = os.environ.get(
 LAUNCHER_SERVICE = os.environ.get(
     "LAUNCHER_SERVICE", "g90-shared-launcher.service"
 )
+
+# Make the scripts/ dir importable so app.py can pull in
+# config_backup without invoking it as `scripts.config_backup`
+# (which would require the launcher dir on sys.path — which
+# is what this line does for us, but only if it isn't
+# already). 2026-09-09 21:38 MDT: v0.6.46 adds the
+# backup/restore module.
+if LAUNCHER_DIR not in sys.path:
+    sys.path.insert(0, LAUNCHER_DIR)
+from scripts import config_backup
 
 # SCRIPTS = LAUNCHER_DIR/scripts (env-overridable for the test sled)
 # so run_script() works in both /home/pi/shared_launcher (real g90)
@@ -1448,6 +1459,256 @@ def update_from_server_legacy_get():
 def update_from_server_legacy_post():
     # Forward to the canonical POST handler.
     return update_from_server()
+
+
+# ---------------------------------------------------------------------------
+# Config backup / restore
+# ---------------------------------------------------------------------------
+#
+# Pattern source: sbitx's toolbox app. Operator-facing flow is
+# two pages:
+#
+#   GET  /backup-configs   -> download a fresh .tar.gz of the
+#                              live box's whitelisted config
+#                              files (Reticulum, modem73, js8call,
+#                              fldigi, flrig, wsjtx, pat, hostapd,
+#                              etc.) -> rotates to last 5 in
+#                              /home/pi/shared_launcher/backups/
+#   GET  /restore-configs  -> upload form + a list of the last
+#                              5 in-box archives (so the operator
+#                              can restore from one without
+#                              needing to download + re-upload)
+#   POST /restore-configs/preview
+#                           -> extract to a staging dir, compute
+#                              a diff against the live files,
+#                              return an HTML page listing every
+#                              file with action: add / replace /
+#                              skip, plus a confirm button
+#   POST /restore-configs/apply/<token>
+#                           -> copy staged files to live paths,
+#                              wipe the staging dir, restart
+#                              affected services, return a
+#                              summary page
+#   POST /restore-configs/cancel/<token>
+#                           -> wipe the staging dir, return
+#                              to the upload form
+#
+# Box-specific backup (per operator 2026-09-09 21:38 MDT):
+# restoring a backup from box A to box B gives box B box A's
+# Reticulum identity. That's usually what you want (so the
+# rest of the fleet can find the new box) but is documented
+# on the restore page.
+
+@app.route("/backup-configs", methods=["GET"])
+def backup_configs():
+    """Build a tar.gz of the live box's whitelisted config
+    files and return it as a download. Also keeps a copy in
+    /home/pi/shared_launcher/backups/ (rotated to last 5)."""
+    try:
+        tar_bytes, manifest = config_backup.build_backup_tarball()
+    except Exception as e:
+        return f"<h1>Backup failed</h1><p>{e}</p>", 500
+
+    # Persist a copy on the box (rotated).
+    config_backup.save_backup_and_rotate(tar_bytes, manifest)
+
+    # Stream it back to the operator.
+    return send_file(
+        io_for_send(tar_bytes),
+        mimetype="application/gzip",
+        as_attachment=True,
+        download_name=config_backup.backup_filename(manifest),
+    )
+
+
+@app.route("/restore-configs", methods=["GET"])
+def restore_configs_form():
+    """Upload form. Also lists the last 5 in-box archives so
+    the operator can restore from a recent backup without
+    having to re-download it."""
+    backups = config_backup.list_backups()
+    rows = "".join(
+        f"<li><form method='POST' action='/restore-configs/from-archive' "
+        f"style='display:inline'>"
+        f"<input type='hidden' name='filename' value='{b['filename']}'>"
+        f"<button>Restore</button></form> "
+        f"<code>{b['filename']}</code> "
+        f"<span style='color:#666'>({b['size']:,} bytes, "
+        f"{b['mtime']})</span></li>"
+        for b in backups
+    )
+    if not rows:
+        rows = ("<li><em>No on-box backups yet. Use the form below "
+                "to upload one.</em></li>")
+    return (
+        "<h1>Restore configs</h1>"
+        "<p>Upload a <code>g90-configs-*.tar.gz</code> archive to "
+        "see what would change. Restoring is a two-step process: "
+        "first you'll see a preview, then confirm to apply.</p>"
+        "<p><b>Heads up:</b> backups include the box's Reticulum "
+        "node identity. Restoring a backup from a different box "
+        "gives this box the old box's identity on the mesh.</p>"
+        "<h2>Upload a backup</h2>"
+        "<form method='POST' enctype='multipart/form-data' "
+        "action='/restore-configs/preview'>"
+        "<input type='file' name='archive' accept='.tar.gz,.tgz' "
+        "required>"
+        "<button>Preview</button></form>"
+        "<h2>Or restore from a recent on-box backup</h2>"
+        f"<ul>{rows}</ul>"
+        "<p style='margin-top:2em;'><a href='/'>Back to launcher</a></p>"
+    )
+
+
+@app.route("/restore-configs/preview", methods=["POST"])
+def restore_configs_preview():
+    """Extract the upload to a staging dir, compute a diff
+    against the live files, render the preview page."""
+    # Two ways to get here: the upload form, or the
+    # from-archive form. The from-archive form posts a
+    # `filename` field; the upload form posts the file
+    # as `archive`.
+    if "filename" in request.form:
+        # Restore from an in-box archive.
+        fname = request.form["filename"]
+        fpath = os.path.join(config_backup.BACKUP_DIR, fname)
+        if not os.path.isfile(fpath):
+            return (f"<h1>Archive not found</h1>"
+                    f"<p><code>{fname}</code> is not in "
+                    f"<code>{config_backup.BACKUP_DIR}</code>.</p>"
+                    f"<p><a href='/restore-configs'>Back</a></p>"), 404
+        with open(fpath, "rb") as f:
+            tar_bytes = f.read()
+    else:
+        # Upload form. request.files['archive'] is a
+        # FileStorage; .read() gives bytes.
+        upload = request.files.get("archive")
+        if not upload or not upload.filename:
+            return ("<h1>No file uploaded</h1>"
+                    "<p><a href='/restore-configs'>Back</a></p>"), 400
+        tar_bytes = upload.read()
+
+    try:
+        token, staging, members = (
+            config_backup.extract_to_staging(tar_bytes)
+        )
+    except ValueError as e:
+        return (f"<h1>Could not read archive</h1><p>{e}</p>"
+                f"<p><a href='/restore-configs'>Back</a></p>"), 400
+
+    diff = config_backup.compute_diff(staging)
+    # Persist a tiny session file mapping token -> staging
+    # dir. The token is in the URL so we don't need cookies.
+    # (The staging dir already lives at RESTORE_STAGING/<token>
+    # — that's the mapping; we just need the token round-trip
+    # to be in the URL the operator clicks.)
+    rows = []
+    for item in diff["items"]:
+        cls = {"add": "ok", "replace": "warn", "skip": "dim"}[
+            item["action"]]
+        rows.append(
+            f"<tr class='{cls}'>"
+            f"<td>{item['action']}</td>"
+            f"<td><code>{item['path']}</code></td>"
+            f"<td style='text-align:right'>{item['size']:,}</td>"
+            f"</tr>"
+        )
+    table = "".join(rows) or (
+        "<tr><td colspan='3'><em>No files in archive</em></td></tr>"
+    )
+    summary = (
+        f"<p><b>{sum(1 for x in diff['items'] if x['action'] == 'add')}"
+        f" added</b>, "
+        f"<b>{sum(1 for x in diff['items'] if x['action'] == 'replace')}"
+        f" replaced</b>, "
+        f"{sum(1 for x in diff['items'] if x['action'] == 'skip')}"
+        f" unchanged.</p>"
+    )
+    apply_button = (
+        f"<form method='POST' "
+        f"action='/restore-configs/apply/{token}' "
+        f"onsubmit=\"return confirm('Apply {sum(1 for x in diff['items'] if x['action'] in ('add','replace'))} file changes and restart affected services? The launcher will be down for ~5s during the restart.');\">"
+        f"<button class='warn'>Apply</button></form>"
+        if diff["action_required"] else
+        "<p><em>No changes needed — archive is already in sync "
+        "with the live box.</em></p>"
+    )
+    return (
+        f"<h1>Restore preview</h1>"
+        f"<p>Token: <code>{token}</code> (valid until you click "
+        f"Apply or Cancel).</p>"
+        f"{summary}"
+        f"<table border='1' cellpadding='4' style='border-collapse:"
+        f"collapse; font-family:monospace;'>"
+        f"<tr><th>action</th><th>path</th><th>size</th></tr>"
+        f"{table}</table>"
+        f"<p style='margin-top:1em;'>{apply_button}"
+        f"<form method='POST' action='/restore-configs/cancel/{token}' "
+        f"style='display:inline'>"
+        f"<button>Cancel</button></form></p>"
+        f"<p style='margin-top:2em;'><a href='/'>Back to launcher</a></p>"
+    )
+
+
+@app.route("/restore-configs/apply/<token>", methods=["POST"])
+def restore_configs_apply(token):
+    """Copy staged files to live paths, wipe the staging
+    dir, restart affected services."""
+    staging = os.path.join(config_backup.RESTORE_STAGING, token)
+    if not os.path.isdir(staging):
+        return ("<h1>Token expired</h1>"
+                "<p>The staging dir for that token no longer "
+                "exists. Please re-upload.</p>"
+                "<p><a href='/restore-configs'>Back</a></p>"), 410
+    try:
+        written = config_backup.apply_staging(staging)
+    except Exception as e:
+        return (f"<h1>Apply failed</h1><p>{e}</p>"
+                f"<p><a href='/restore-configs'>Back</a></p>"), 500
+    # Staging is consumed; wipe it.
+    config_backup.discard_staging(token)
+    # Restart services so they pick up new config. The
+    # launcher itself is in the list — it'll be down for
+    # ~3s, then come back at the same URL.
+    config_backup.restart_services_after_restore()
+    rows = "".join(f"<li><code>{p}</code></li>" for p in written)
+    return (
+        f"<h1>Restore applied</h1>"
+        f"<p>Wrote {len(written)} files. Services restarting now; "
+        f"the launcher itself is in the list so you'll see this "
+        f"page's redirect interrupted — refresh in ~5s.</p>"
+        f"<ul>{rows}</ul>"
+        f"<p style='margin-top:2em;'><a href='/'>Back to launcher</a></p>"
+    )
+
+
+@app.route("/restore-configs/cancel/<token>", methods=["POST"])
+def restore_configs_cancel(token):
+    """Wipe the staging dir, return to the upload form."""
+    config_backup.discard_staging(token)
+    return redirect("/restore-configs", code=302)
+
+
+@app.route("/restore-configs/from-archive", methods=["POST"])
+def restore_configs_from_archive():
+    """Helper: redirect the from-archive POST into the
+    preview handler with the same payload."""
+    # The restore_configs_preview handler reads `filename`
+    # from request.form; the form posts to here. We just
+    # forward by re-invoking the preview handler with
+    # the same request context — Flask supports this
+    # via a direct call.
+    return restore_configs_preview()
+
+
+# send_file wants a file-like object, but we have bytes in
+# memory. This wraps bytes as a BytesIO that send_file will
+# read once. Cheaper than hitting disk for a 50-200 KB
+# tarball. We avoid module-level `import io` collision by
+# importing it here (config_backup already imports it).
+import io as _io
+def io_for_send(b):
+    return _io.BytesIO(b)
 
 
 if __name__ == "__main__":

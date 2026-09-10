@@ -1,0 +1,75 @@
+{
+  "release": "v0.6.46",
+  "release_date": "2026-09-09",
+  "image_baseline": "g90digi-2026-08-09",
+  "channel": "https://github.com/smeshT/reticulumpi.git",
+  "branch": "main",
+  "components": {
+    "launcher": {
+      "type": "github-pull",
+      "auto_update": true,
+      "source_path": "/"
+    },
+    "systemd_units": [
+      {
+        "name": "g90-shared-launcher.service",
+        "required": true
+      },
+      {
+        "name": "reticulumhf-rnsd.service",
+        "required": true
+      },
+      {
+        "name": "meshchatx.service",
+        "required": true
+      },
+      {
+        "name": "lxmd.service",
+        "required": true
+      }
+    ],
+    "pip_packages": [
+      {
+        "venv": "rns",
+        "package": "rns",
+        "min_version": "1.4.0"
+      },
+      {
+        "venv": "rns",
+        "package": "lxmf",
+        "min_version": "1.1.0"
+      },
+      {
+        "venv": "reticulum-meshchatx",
+        "package": "reticulum-meshchatx",
+        "min_version": "4.8.0"
+      }
+    ],
+    "config_files": [
+      {
+        "path": "/home/pi/.reticulum/config",
+        "required": true
+      },
+      {
+        "path": "/etc/systemd/system/meshchatx.service",
+        "required": true
+      },
+      {
+        "path": "/usr/local/bin/restart-meshchatx",
+        "required": true,
+        "mode": "0755"
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/start_pavucontrol.sh",
+        "required": true,
+        "mode": "0755"
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/stop_pavucontrol.sh",
+        "required": true,
+        "mode": "0755"
+      }
+    ]
+  },
+  "notes": "v0.6.46: Config backup / restore (sbitx toolbox pattern).\n\nPer operator 2026-09-09 21:38 MDT: \"can we extract the\nconfig files from the g90's to back them up or to add them\nback to a fresh image? on the sbitx it has a toolbox app\nthat allows you to just save the various config files for\nthis reason. is that a difficult build?\"\n\nBuild: not difficult. ~250 lines of Flask + 350 lines of\nhelper module. Pattern source: sbitx toolbox.\n\nTwo new pages in the launcher:\n\nGET /backup-configs\n\n    Builds a .tar.gz of the live box's whitelisted config\n    files and returns it as a download. A copy is also\n    persisted on the box at\n    /home/pi/shared_launcher/backups/, rotated to last\n    5. The tarball filename is\n\n        g90-configs-<hostname>-<version>-<timestamp>.tar.gz\n\n    so a multi-box operator can tell which box an archive\n    came from.\n\nGET /restore-configs\n\n    Upload form. Operator can either upload a tarball OR\n    pick from the last 5 in-box archives (no need to\n    download + re-upload).\n\nPOST /restore-configs/preview\n\n    Extracts the upload to a staging dir, computes a diff\n    against the live files, renders a table showing\n    add/replace/skip per file, plus a confirm button.\n\nPOST /restore-configs/apply/<token>\n\n    Copies staged files to live paths, wipes the staging\n    dir, restarts affected services (freedvtnc2,\n    reticulumhf-rnsd, meshchatx, g90-shared-launcher).\n    The launcher is in the restart list so the operator\n    sees the page's redirect interrupted \u2014 refresh after\n    ~5s.\n\nPOST /restore-configs/cancel/<token>\n\n    Wipes the staging dir, returns to the upload form.\n\nWhitelist (closed; operator 2026-09-09 21:38 MDT:\n\n  /home/pi/.reticulum/config               (Reticulum + interfaces)\n  /etc/reticulumhf/config.env             (if exists)\n  /home/pi/.config/pat/                    (PAT config)\n  /home/pi/.config/modem73/                (modem73 audio, etc.)\n  /home/pi/.config/ardopc/                 (ARDOP if any)\n  /home/pi/.config/direwolf/               (Direwolf if any)\n  /home/pi/.config/js8call/                (NEW)\n  /home/pi/.config/fldigi/                 (NEW)\n  /home/pi/.config/flrig/                  (NEW)\n  /home/pi/.config/wsjtx/                  (NEW)\n  /home/pi/.config/hamlib/                 (hamlib configs)\n  /home/pi/.config/pavucontrol.ini\n  /etc/hostapd/hostapd.conf                (wifi AP)\n  /etc/dhcp/dhcpd.conf                     (DHCP for AP clients)\n  /home/pi/.local/share/patmenu2/          (patmenu2 state)\n\nBox-specific backup (per operator 2026-09-09 21:38 MDT):\n\"configs vary btw boxes so box specific\". The Reticulum\nconfig includes the box's node identity. Restoring a\nbackup to a different box gives the new box the old\nbox's identity. This is usually what you want (so the\nrest of the fleet can find the new box) but is documented\non the restore page.\n\nReplace-all restore (per operator 2026-09-09 21:40 MDT):\nthe apply step blows away the existing files and writes\nthe backup's version. The dry-run preview shows the diff\nbefore the apply button is enabled.\n\nRotate last 5 (per operator 2026-09-09 21:40 MDT): each\nbackup-configs hit writes a new file to\n/home/pi/shared_launcher/backups/, sorted by mtime, only\nthe last 5 are kept.\n\nTests run on m5boss via Flask test client:\n\n  - GET /backup-configs returns 200 with application/gzip\n    Content-Type, attachment Content-Disposition, the\n    tarball is well-formed and re-readable.\n  - GET /restore-configs returns 200 with the upload\n    form.\n  - After a backup, /restore-configs lists the new file\n    in \"Or restore from a recent on-box backup\" section.\n  - POST /restore-configs/preview with a fake archive\n    returns 200 with a diff table.\n  - POST /restore-configs/apply/<token> writes the\n    staged file, wipes the staging dir, returns 200.\n  - POST /restore-configs/apply/deadbeef returns 410\n    Gone.\n\nNot yet tested on a real g90 box \u2014 will be the next\n\"click Update on g90digi\" step.\n\nOperator UX:\n\n1. On g90digi (the shipping box with the right config):\n   open http://g90digi.local/backup-configs, save the\n   tarball. Or just click Backup on the launcher home.\n\n2. On the freshly-flashed box: open\n   http://freshbox.local/restore-configs, upload the\n   tarball, preview the diff, click Apply.\n\n3. The launcher restarts (~5s down). All Reticulum /\n   digimode services pick up the new config from their\n   freshly-restarted state."
+}
