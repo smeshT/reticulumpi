@@ -27,7 +27,6 @@ import shutil
 import subprocess
 import tarfile
 import tempfile
-import time
 import datetime
 
 # Whitelist of paths to back up. Closed list; no globs; no
@@ -238,9 +237,11 @@ RESTORE_STAGING = os.environ.get(
 
 
 def _new_token():
-    return os.popen(
-        "head -c 16 /dev/urandom | xxd -p"
-    ).read().strip() or format(int(time.time() * 1e6), "x")
+    """Return a 32-hex-char token. Use Python's `secrets`
+    module so we don't depend on /usr/bin/xxd being on
+    the box (ReticulumHF base doesn't ship it)."""
+    import secrets
+    return secrets.token_hex(16)
 
 
 def extract_to_staging(tar_bytes):
@@ -350,6 +351,16 @@ def apply_staging(staging):
     `staging/home/pi/.reticulum/config` becomes
     `/home/pi/.reticulum/config`.
 
+    Some target dirs are owned by root (e.g. /home/pi/.config/pat/
+    when the pat .deb created config.json with root:root). The
+    launcher runs as pi, so the unshilded shutil.copy2 would
+    fail with PermissionError. v0.6.48 fix: if shutil.copy2
+    raises PermissionError, retry via `sudo install -o pi -g pi
+    -m 0644`. Falls back to root:root if sudo isn't available,
+    but the launcher's user is in sudoers (nopiasswd) on
+    every deployed g90. The retry is bounded so a non-perm
+    OSError (e.g. ENOSPC) still bubbles up.
+
     Returns a list of paths that were written (suitable for
     the post-apply page that says "we wrote these files")."""
     written = []
@@ -366,13 +377,23 @@ def apply_staging(staging):
             # in the backup that we haven't created yet.
             os.makedirs(os.path.dirname(target), exist_ok=True)
 
-            # Copy. shutil.copy2 preserves mtime/perm. We
-            # do not chown: the launcher runs as pi, and
-            # the captured files are already owned by pi
-            # (the live config was created by the running
-            # services). For files the launcher created
-            # itself, the owner is already pi.
-            shutil.copy2(full, target)
+            # Try the unshilded copy first (covers most
+            # cases where the target dir is owned by pi).
+            # On PermissionError, fall back to sudo install.
+            try:
+                shutil.copy2(full, target)
+            except PermissionError:
+                # `install -D` creates parent dirs; -o/-g/-m
+                # set ownership/perm. The staging file is
+                # passed as the source.
+                subprocess.run(
+                    ["sudo", "-n", "install", "-D",
+                     "-o", "pi", "-g", "pi", "-m", "0644",
+                     full, target],
+                    check=True,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.PIPE,
+                )
             written.append(target)
     return written
 

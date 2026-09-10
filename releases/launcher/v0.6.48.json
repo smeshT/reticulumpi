@@ -1,0 +1,75 @@
+{
+  "release": "v0.6.48",
+  "release_date": "2026-09-09",
+  "image_baseline": "g90digi-2026-08-09",
+  "channel": "https://github.com/smeshT/reticulumpi.git",
+  "branch": "main",
+  "components": {
+    "launcher": {
+      "type": "github-pull",
+      "auto_update": true,
+      "source_path": "/"
+    },
+    "systemd_units": [
+      {
+        "name": "g90-shared-launcher.service",
+        "required": true
+      },
+      {
+        "name": "reticulumhf-rnsd.service",
+        "required": true
+      },
+      {
+        "name": "meshchatx.service",
+        "required": true
+      },
+      {
+        "name": "lxmd.service",
+        "required": true
+      }
+    ],
+    "pip_packages": [
+      {
+        "venv": "rns",
+        "package": "rns",
+        "min_version": "1.4.0"
+      },
+      {
+        "venv": "rns",
+        "package": "lxmf",
+        "min_version": "1.1.0"
+      },
+      {
+        "venv": "reticulum-meshchatx",
+        "package": "reticulum-meshchatx",
+        "min_version": "4.8.0"
+      }
+    ],
+    "config_files": [
+      {
+        "path": "/home/pi/.reticulum/config",
+        "required": true
+      },
+      {
+        "path": "/etc/systemd/system/meshchatx.service",
+        "required": true
+      },
+      {
+        "path": "/usr/local/bin/restart-meshchatx",
+        "required": true,
+        "mode": "0755"
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/start_pavucontrol.sh",
+        "required": true,
+        "mode": "0755"
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/stop_pavucontrol.sh",
+        "required": true,
+        "mode": "0755"
+      }
+    ]
+  },
+  "notes": "v0.6.48: Two bug fixes caught during live-box testing\nof the v0.6.46 backup/restore feature.\n\n1. _new_token() used `xxd` which isn't on the box.\n   ReticulumHF base doesn't ship xxd (only od / hexdump\n   on the basic coreutils). v0.6.46 restore previews\n   silently fell back to a 12-char time-based token,\n   which is fine for the URL but it's brittle. Fixed\n   in v0.6.48: use Python's `secrets.token_hex(16)` for\n   a proper 32-char hex token with no shell dependency.\n\n2. shutil.copy2 fails with PermissionError when the\n   target file is owned by root (e.g. /home/pi/.config/pat/\n   config.json is root:root because the pat .deb creates\n   it that way, and the bootstrap's `sudo install -o pi\n   -g pi` doesn't override it). The launcher runs as\n   pi, so the unshilded copy fails. v0.6.46 apply\n   returned 500 with [Errno 13] Permission denied on\n   this exact file. Fixed in v0.6.48: on PermissionError,\n   retry with `sudo -n install -D -o pi -g pi -m 0644\n   <src> <dst>`. The launcher's user is in sudoers\n   (nopasswd) on every deployed g90, so the retry\n   succeeds. Non-perm OSErrors (ENOSPC etc.) still\n   bubble up.\n\nDiscovered 2026-09-09 21:50 MDT during a live-box\nrestore test on a freshly-bootstrapped reticulumpi\nbox. First preview correctly identified 1 add / 5\nskip; apply returned 500 with the PermissionError;\nafter the fix, apply succeeds and the operator-notes\nfile lands on the live box."
+}
