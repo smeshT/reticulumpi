@@ -14,56 +14,26 @@ keyboard chat app as well to allow direct testing of the hf transport
 medium. 
 Built with much AI assistance; Openclaw and Minimax M3
 
-## Build your own
+## Build from script
+Check for the latest version availabe and replace <latest-version> in the block below.
 
-The `.img.xz` binary isn't shipped in this repo (1 GB is too big
-for git + we don't have release infrastructure wired up for the
-image artifact). **The recipe to build one is in
-[`BUILD.md`](./BUILD.md) and the overlay lives in
-[`g90-image/`](./g90-image/).** A pre-built image was last
-published as a GitHub Release tagged v0.5 (2026-08-09); the
-recipe has been updated since then but a fresh pre-built
-`.img.xz` for v0.6.12 has not been published yet. Until then,
-follow BUILD.md on top of the stock ReticulumHF base image.
+``` bash
+curl -sL https://raw.githubusercontent.com/smeshT/reticulumpi/<latest-version>/scripts/reticulumpi-bootstrap.sh -o /tmp/reticulumpi-bootstrap.sh
+chmod +x /tmp/reticulumpi-bootstrap.sh
+bash /tmp/reticulumpi-bootstrap.sh
+```
 
-If you'd rather build it yourself from this repo + a stock
-ReticulumHF base image, the end-to-end recipe is in
-[`BUILD.md`](BUILD.md). The short version: download the
-[ReticulumHF](https://github.com/LFManifesto/ReticulumHF/releases/)
-base image (also linked from the
-[Light Fighter resources](https://lightfightermanifesto.org/resources/)),
-flash it with Raspberry Pi Imager, `apt install` the overlay
-packages (flrig, hamlib, pat, direwolf, zerotier, etc.), clone
-this repo, drop `g90-image/` + `g90-launcher/` files into place,
-set your operator values (callsign, SSID, password, ZT network)
-in `/etc/reticulumhf/config.env`, enable the systemd units, reboot.
-~45-60 min on a Pi 4, mostly package installation.
 
 ## What's here
 
-- **`BUILD.md`** — the end-to-end build recipe (start here).
-- **`g90-image/`** — the canonical image overlay (Pi 4 + Pi 5 in
-  64-bit mode). The dual-arch capability was verified on
-  2026-08-09: one captured image deploys to both architectures.
-  `g90-image/pi4/` is the Pi 4 historical, preserved for
-  reference (read-only, not for new work).
-- **`g90-launcher/`** — the shared launcher (Flask app on port 80
-  on the deployed box), the systemd units, the ARDOP PTT bridge,
-  the install script.
-- **`scripts/`** — g90-specific scripts (`freedv_tui.sh`,
-  `freedv_waterfall.py`, `g90-test-sled-setup.sh`,
-  `start_waterfall.sh`, plus the `_lib_stop.sh` helper).
-- **`memory/`** — the canonical reference (`g90-project.md`) and
-  design notes (`2026-07-28-short-turn-router.md`).
-- **`releases/`** — per-image-release docs (manifest, NOTES) for
-  the captured `.img.xz` files. See `releases/2026-08-09-post-pi5-firstboot/NOTES.md`
-  for first-boot guidance on a pre-built image.
+- **`scripts/`** — 
+- **`memory/`** — 
 - **`g90-image/QUICK-START.html` / `.pdf`** — printable end-user
   manual for a deployed box.
 
 ## Operating a deployed box
 
-If you already have a g90digi box flashed and want to use it:
+If you already have a reticulumpi box flashed and want to use it:
 see [`g90-image/QUICK-START.md`](g90-image/QUICK-START.md). It's
 the end-user manual — what the buttons do, how to connect your
 radio, what to do if something breaks.
