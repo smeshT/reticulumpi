@@ -1,6 +1,6 @@
 # Building a g90 box from source
 
-## Outdated info use **[Build from Script]_(./README.md)**
+## Outdated info use **[Build from Script]_(README.md)**
 
 This is the **end-to-end recipe** for building a g90 box
 (Raspberry Pi 4 or Pi 5 running the g90digi image, configured
