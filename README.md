@@ -37,7 +37,7 @@ curl -sSL https://raw.githubusercontent.com/smeshT/reticulumpi/main/scripts/reti
 
 
 ## What's here
-check [Releases](releases/launcher/README.md) for up to date list.
+check [Releases](releases/README.md) for up to date list.
 
 **Ham Apps/Modems**
 ReticulumHF web UI
