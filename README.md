@@ -15,12 +15,18 @@ medium.
 Built with much AI assistance; Openclaw and Minimax M3
 
 ## Build from script
-Check for the latest version availabe and replace `<latest-version>` in the block below.
+Flash a fresh [ReticulumHF](rhf) image to an SD card or USB drive with 
+Raspberry pi imager. If using a USB dongle on the pi for wifi connection
+set the network SSID and password using "Apply OS customization" -->
+Edit Settings.
+
+Boot pi with created image and connect to pi (if using dongle and setup
+configured prior to flash, this is automatic; or ethernet to router; or
+connect to pi AP wifi connection; SSID ReticulumHF, pw reticulumhf)
+**Note 1st boot will take 5+ min until ready to connect**
 
 ``` bash
-curl -sL https://raw.githubusercontent.com/smeshT/reticulumpi/<latest-version>/scripts/reticulumpi-bootstrap.sh -o /tmp/reticulumpi-bootstrap.sh
-chmod +x /tmp/reticulumpi-bootstrap.sh
-bash /tmp/reticulumpi-bootstrap.sh
+curl -sSL https://raw.githubusercontent.com/smeshT/reticulumpi/main/scripts/reticulumpi-bootstrap.sh | bash
 ```
 
 
