@@ -3,12 +3,8 @@
 This directory documents each captured flashable image produced by the
 g90 / sbitx overlay.
 
-**Note:** image binaries (the `.img.xz` files) are NOT in this repo.
-They live on the dev Pi at `/media/pi/REMOTE/pi_images/` because
-1 GB binaries don't belong in git. See each release's NOTES.md for
-download instructions (the g90 group's ZT host is documented in
-the deployed-box operations notes; public readers should build from
-source via [BUILD.md](../BUILD.md)).
+**Note:** image binaries (the `.img.xz` files) are NOT always up to date. 
+Use the build script for the latest. 
 
 ## Index of releases
 
