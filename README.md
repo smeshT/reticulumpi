@@ -1,6 +1,7 @@
 # reticulumpi
 
-https://github.com/smeshT/reticulumpi/blob/30eb43849079759dc24db542e764686d527ae031/Screenshot%20Rpi
+<img width="937" height="888" alt="Screenshot from 2026-09-10 10-01-10" src="https://github.com/user-attachments/assets/34044319-720a-46a2-9af4-cb7a1ad74951" />
+
 
 This is a very much a work-in-progress image build for a Raspberry pi 
 to allow HF digital mode comms over a wifi connection to a PC or phone. 
