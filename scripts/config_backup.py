@@ -41,10 +41,10 @@ CONFIG_WHITELIST = [
     ("/home/pi/.config/modem73",                                    True),
     ("/home/pi/.config/ardopc",                                     True),
     ("/home/pi/.config/direwolf",                                   True),
-    ("/home/pi/.config/js8call",                                    True),
-    ("/home/pi/.config/fldigi",                                     True),
-    ("/home/pi/.config/flrig",                                      True),
-    ("/home/pi/.config/wsjtx",                                      True),
+    ("/home/pi/.js8call",                                   True),  # JS8Call
+    ("/home/pi/.fldigi",                                    True),  # fldigi
+    ("/home/pi/.flrig",                                     True),  # flrig
+    ("/home/pi/.wsjtx",                                     True),  # WSJT-X
     ("/home/pi/.config/hamlib",                                     True),
     ("/home/pi/.config/pavucontrol.ini",                            False),
     ("/etc/hostapd/hostapd.conf",                                   False),
