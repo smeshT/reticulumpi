@@ -48,7 +48,6 @@ dev pi (nomadpi):
 - **Detach long-running exec calls** with `setsid + nohup + &`. A 30-min `dd` got killed by an OpenClaw tool policy change.
 - **Pi 5's USB-C power negotiation can fail** with some USB drives during sustained writes. Two different USB drives failing Pi Imager's "error reading from storage" in two days = symptom, not cause. Workarounds: dd from laptop, powered USB hub, or USB 2.0 black ports.
 - **ZeroTier systemd service needs `ExecStartPost=/bin/sleep 2`** before `zerotier-cli join` — otherwise the join races the daemon's socket listener and fails.
-- **g90digi Pi 5 SSH password `<password-from-secret-store>` is in Telegram chat history** — same leak pattern as the original g90 boxes. askpass file `~/.local/bin/askpass-g90digi.sh` echoes `<password-from-secret-store>`; `~/.ssh/.g90digi-pass` is mode 600. Rotation is not in agent scope.
 - **g90digi Pi 5 BOOT_ORDER=0x4** (USB only) — no SD card fallback. USB drive is the only boot media.
 
 ## Image manifest convention
