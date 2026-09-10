@@ -9,18 +9,19 @@
 # hostapd.conf) — those are operator values, not bootstrap values.
 #
 # What it does, in order:
-#   Phase 0: Sanity check (ReticulumHF base, network, disk space)
-#   Phase 1: apt sources (add ZeroTier's download.zerotier.com repo)
-#   Phase 2: apt install (system tools, radio apps, noVNC stack)
-#   Phase 3: pipx (rns==1.4.2 + lxmf inject, freedvtnc2, reticulum-meshchatx)
-#   Phase 4: github binaries (modem73 .deb pinned to 2.4.0)
-#   Phase 5: pre-existing service directories (mkdir + chown)
-#   Phase 6: clone reticulumpi + pin to latest github tag
-#   Phase 7: overlay config + systemd units
-#   Phase 8: x11vnc password (random 8 chars, printed once)
-#   Phase 9: systemctl daemon-reload + enable --now
-#   Phase 10: verify (curl /launcher-status, all components match)
-#   Phase 11: prompt for ZeroTier network ID + join (optional)
+#   Phase 0: Sanity check (Pi OS Lite base, network, disk space)
+#   Phase 1: Vendor ReticulumHF (fetch smeshT/ReticulumHF tarball, extract to /)
+#   Phase 2: apt sources (add ZeroTier's download.zerotier.com repo)
+#   Phase 3: apt install (system tools, radio apps, noVNC stack)
+#   Phase 4: pipx (rns==1.4.2 + lxmf inject, freedvtnc2, reticulum-meshchatx)
+#   Phase 5: github binaries (modem73 .deb pinned to 2.4.0)
+#   Phase 6: pre-existing service directories (mkdir + chown)
+#   Phase 7: clone reticulumpi + pin to latest github tag
+#   Phase 8: overlay config + systemd units
+#   Phase 9: prepare-* helpers (mkdir + chown for protected paths)
+#   Phase 10: systemctl daemon-reload + enable --now
+#   Phase 11: verify (curl /launcher-status, all components match)
+#   Phase 12: prompt for ZeroTier network ID + join (optional)
 #
 # What's NOT in this script:
 #   - Flashing the SD card (do that with Pi Imager first)
@@ -47,6 +48,15 @@ RNS_VERSION="1.4.2"
 LXMF_VERSION=""  # latest
 FREEDVTNC2_VERSION=""  # latest
 RETICULUM_MESHCHATX_VERSION=""  # latest
+
+# ReticulumHF (the setup wizard + configs we used to depend on as a
+# third-party image). Since 2026-09-10 we vendor it as a tarball from
+# our own fork (smeshT/ReticulumHF) instead of expecting the user to
+# download the upstream image. The fork restores the historical MIT
+# LICENSE that upstream deleted; see FORK-NOTICE.md in the tarball.
+RETICULUMHF_FORK_REPO="https://github.com/smeshT/ReticulumHF"
+RETICULUMHF_VERSION="v1.0.0-fork.1"
+RETICULUMHF_TARBALL_URL="https://github.com/${RETICULUMHF_FORK_REPO#https://github.com/}/releases/download/${RETICULUMHF_VERSION}/reticulumhf-${RETICULUMHF_VERSION}.tar.gz"
 
 # ============================================================================
 # PATH
@@ -105,10 +115,62 @@ ROOT_FREE_KB=$(df -k / | tail -1 | awk '{print $4}')
 ok "disk space: $((ROOT_FREE_KB / 1024)) MB free on /"
 
 # ============================================================================
-# Phase 1: apt sources
+# Phase 1: Vendor ReticulumHF (setup wizard + configs)
+# ============================================================================
+# 2026-09-10: We used to require users to download the ReticulumHF base
+# image from LFManifesto, then run this script on top. Now we vendor
+# the ReticulumHF components ourselves: fetch a tarball from our fork
+# (smeshT/ReticulumHF) and extract to /. This gives us full control
+# over which ReticulumHF version ships, and removes the third-party
+# image dependency.
+#
+# The vendor tarball is a verbatim copy of LFManifesto/ReticulumHF
+# (MIT-licensed historically; upstream deleted the LICENSE at some
+# point, we restored it in our fork). See FORK-NOTICE.md in the
+# tarball for the full fork rationale.
+#
+# Idempotent: if /opt/reticulumhf/setup-portal/app.py already exists
+# and matches the vendored version, the fetch + extract is skipped.
+
+phase "Phase 1: Vendor ReticulumHF (setup wizard + configs)"
+
+VENDOR_TARBALL="/tmp/reticulumhf-${RETICULUMHF_VERSION}.tar.gz"
+NEED_VENDOR=true
+
+# Check if a matching ReticulumHF version is already installed.
+# We compare against the FORK-NOTICE.md version line, which is the
+# most reliable signal across reinstalls.
+if [ -f /opt/reticulumhf/FORK-NOTICE.md ] && \
+   grep -q "${RETICULUMHF_VERSION}" /opt/reticulumhf/FORK-NOTICE.md 2>/dev/null; then
+    ok "ReticulumHF ${RETICULUMHF_VERSION} already installed at /opt/reticulumhf/"
+    NEED_VENDOR=false
+fi
+
+if [ "$NEED_VENDOR" = "true" ]; then
+    ok "fetching ReticulumHF ${RETICULUMHF_VERSION} from ${RETICULUMHF_FORK_REPO}"
+    if ! curl -fsSL "${RETICULUMHF_TARBALL_URL}" -o "${VENDOR_TARBALL}"; then
+        fail "could not fetch ${RETICULUMHF_TARBALL_URL}"
+    fi
+    ok "tarball downloaded: $(du -h ${VENDOR_TARBALL} | cut -f1)"
+
+    # Extract to /. The tarball uses the prefix `reticulumhf-<version>/`
+    # and we strip one component so files land at /opt/reticulumhf/,
+    # /etc/systemd/system/reticulumhf-*.service, etc.
+    ok "extracting to /"
+    sudo tar -xzf "${VENDOR_TARBALL}" -C / --strip-components=1
+    rm -f "${VENDOR_TARBALL}"
+    ok "ReticulumHF ${RETICULUMHF_VERSION} installed to /opt/reticulumhf/"
+fi
+
+# The ReticulumHF systemd units expect to be enabled but not started
+# at this point. Phase 9 will daemon-reload and enable them.
+ok "ReticulumHF components in place: setup-portal, configs, systemd units"
+
+# ============================================================================
+# Phase 2: apt sources
 # ============================================================================
 
-phase "Phase 1: Add ZeroTier apt source"
+phase "Phase 2: Add ZeroTier apt source"
 
 # Pre-seed dpkg answers (avoid modified-config prompts on initramfs-tools etc.)
 export DEBIAN_FRONTEND=noninteractive
@@ -134,10 +196,10 @@ fi
 ok "zerotier-one available from download.zerotier.com"
 
 # ============================================================================
-# Phase 2: apt install
+# Phase 3: apt install
 # ============================================================================
 
-phase "Phase 2: apt install (system tools, radio apps, noVNC stack)"
+phase "Phase 3: apt install (system tools, radio apps, noVNC stack)"
 
 # Block 1: core tools + digimode apps + noVNC stack
 sudo apt install -y \
@@ -200,10 +262,10 @@ pipx ensurepath
 ok "pipx installed"
 
 # ============================================================================
-# Phase 3: pipx venvs
+# Phase 4: pipx venvs
 # ============================================================================
 
-phase "Phase 3: pipx venvs (Reticulum stack)"
+phase "Phase 4: pipx venvs (Reticulum stack)"
 
 # rns 1.4.2 — matches the manifest's min_version. ReticulumHF base ships rns
 # 1.1.3, so we force-upgrade. This works for rns; do NOT try to upgrade
@@ -246,10 +308,10 @@ done
 ok "all pipx shims on PATH"
 
 # ============================================================================
-# Phase 4: github binaries (modem73)
+# Phase 5: github binaries (modem73)
 # ============================================================================
 
-phase "Phase 4: modem73 (github release .deb)"
+phase "Phase 5: modem73 (github release .deb)"
 
 if ! file /usr/bin/modem73 2>/dev/null | grep -q "ARM aarch64"; then
     MODEM73_DEB="modem73_${MODEM73_VERSION}_debian-12_arm64.deb"
@@ -264,10 +326,10 @@ file /usr/bin/modem73 | grep -q "ARM aarch64" || fail "modem73 binary not aarch6
 ok "modem73 ${MODEM73_VERSION} installed"
 
 # ============================================================================
-# Phase 5: pre-existing service directories
+# Phase 6: pre-existing service directories
 # ============================================================================
 
-phase "Phase 5: pre-existing service directories"
+phase "Phase 6: pre-existing service directories"
 
 # The launcher's component check, meshchatx, and lxmd all need their
 # runtime directories to exist BEFORE the units start. ProtectSystem=strict
@@ -316,10 +378,10 @@ sudo chown pi:pi /home/pi/.lxmd
 ok "/home/pi/.lxmd"
 
 # ============================================================================
-# Phase 6: clone reticulumpi + pin to latest
+# Phase 7: clone reticulumpi + pin to latest
 # ============================================================================
 
-phase "Phase 6: clone reticulumpi + pin to latest"
+phase "Phase 7: clone reticulumpi + pin to latest"
 
 if [ ! -d "$LAUNCHER_DIR" ]; then
     git clone "$GITHUB_REPO" "$LAUNCHER_DIR"
@@ -350,10 +412,10 @@ PINNED_SHA=$(git rev-parse HEAD)
 ok "pinned to $LATEST_TAG ($PINNED_SHA)"
 
 # ============================================================================
-# Phase 7: overlay config + systemd units
+# Phase 8: overlay config + systemd units
 # ============================================================================
 
-phase "Phase 7: overlay (config files + systemd units)"
+phase "Phase 8: overlay (config files + systemd units)"
 
 # Config files
 sudo cp g90-image/config/reticulumhf-config.env /etc/reticulumhf/config.env
@@ -523,10 +585,10 @@ ok "start-novnc-session script installed"
 ok "noVNC password disabled (LAN-only security model)"
 
 # ============================================================================
-# Phase 8: prepare-* helpers
+# Phase 9: prepare-* helpers
 # ============================================================================
 
-phase "Phase 8: prepare-* helpers (mkdir + chown for protected paths)"
+phase "Phase 9: prepare-* helpers (mkdir + chown for protected paths)"
 
 for helper in g90-image/scripts/prepare-meshchatx-dirs.sh \
               g90-image/scripts/prepare-lxmd-dirs.sh; do
@@ -537,10 +599,10 @@ done
 ok "prepare-* helpers ran"
 
 # ============================================================================
-# Phase 9: systemctl enable + start
+# Phase 10: systemctl enable + start
 # ============================================================================
 
-phase "Phase 9: systemctl daemon-reload + enable --now"
+phase "Phase 10: systemctl daemon-reload + enable --now"
 
 sudo systemctl daemon-reload
 ok "daemon-reload"
@@ -599,10 +661,10 @@ ok "g90-shared-launcher restarted"
 sleep 3
 
 # ============================================================================
-# Phase 10: verify
+# Phase 11: verify
 # ============================================================================
 
-phase "Phase 10: verify (curl /launcher-status, all components match)"
+phase "Phase 11: verify (curl /launcher-status, all components match)"
 
 # Service active check
 for svc in g90-shared-launcher.service meshchatx.service lxmd.service \
@@ -651,10 +713,10 @@ else
 fi
 
 # ============================================================================
-# Phase 11: ZeroTier join (optional)
+# Phase 12: ZeroTier join (optional)
 # ============================================================================
 
-phase "Phase 11: ZeroTier join (optional)"
+phase "Phase 12: ZeroTier join (optional)"
 
 sudo zerotier-cli status 2>&1 > /tmp/zt-status.txt
 if grep -m1 -q "ONLINE" /tmp/zt-status.txt; then
