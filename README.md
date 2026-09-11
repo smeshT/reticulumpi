@@ -78,16 +78,16 @@ above instead.
 check [Releases](releases/README.md) for up to date list.
 
 **Ham Apps/Modems**
-ReticulumHF web UI
-js8call
-fldigi and flrig
-WSJT-X
-Modem73
-freedvtnc2
-PAT (not working)
-Pat Menu (not working)
-ARDOP (not working)
-MeshchatX
+- ReticulumHF web UI
+- js8call
+- fldigi and flrig
+- WSJT-X
+- Modem73
+- freedvtnc2
+- PAT (not working)
+- Pat Menu (not working)
+- ARDOP (not working)
+- MeshchatX
 
 
 ## Architecture
