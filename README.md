@@ -27,7 +27,7 @@ Download the latest captured image and flash it directly.
 connection to pi without a wifi or LAN network.
 6. **Use**
    - Web launcher: http://reticulumpi.local/
-   - SSH: `ssh pi@reticulumpi.local` — password `reticulumpi
+   - SSH: `ssh pi@reticulumpi.local` — password `reticulumhf
 ## Build from script (advanced / dev only)
 
 If you want to build from scratch (e.g., to customize, or to test new
