@@ -19,14 +19,18 @@ Built with much AI assistance; Openclaw and Minimax M3
 
 ## Build from script
 1. Flash a fresh Raspberry Pi OS Lite 64-bit image to an SD card or USB
-drive with Raspberry pi imager. If using a USB wifi dongle on the pi for
-wifi connection set the network SSID and password using "Apply OS
-customization" --> Edit Settings.
-
-3. Boot pi with created image and connect pi to internet access with one
+drive with Raspberry pi imager. It is **highly** recommended to use the
+OS Customization settings prior to starting the flash to enable SSH.
+While you are there set the Hostname and password for the pi (this is
+what will be entered during the SSH-in process). If you will be connecting
+to the internet with wifi, set the network SSID and password also.
+  - click `Edit Settings`. When finished click `Yes` to use Custom
+    settings.
+  
+2. Boot pi with created image and connect pi to internet access with one
 of the ways below.
-- if using dongle and setup configured prior to flash, this is automatic
-- ethernet to router; 
+  - if LAN was configured prior to flash, this is automatic
+  - ethernet to router; 
 
 **Note 1st boot will take 5+ min until ready to connect**
 
