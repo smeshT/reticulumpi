@@ -15,7 +15,7 @@ Download the latest captured image and flash it directly.
 
 **Flash instructions:**
 
-1. **Download** the `.img.xz` file (about 922 MB; will expand to ~30 GB when flashed).
+1. **Download** the `.img.xz` file (about 876 MB).
 2. **Flash** with Raspberry Pi Imager (any OS) or `dd` on Linux:
    - **Pi Imager:** choose "Use custom image" → select the `.img.xz` file directly. Imager decompresses automatically.
    - **Linux dd:** `xzcat reticulum-pi-2026-09-11-base.img.xz | sudo dd of=/dev/sdX bs=4M status=progress conv=fsync` (replace `/dev/sdX` with your SD card or USB drive).
