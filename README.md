@@ -19,7 +19,6 @@ Download the latest captured image and flash it directly.
 2. **Flash** with Raspberry Pi Imager (any OS) or `dd` on Linux:
    - **Pi Imager:** choose "Use custom image" → select the `.img.xz` file directly. Imager decompresses automatically.
    - **Linux dd:** `xzcat reticulum-pi-2026-09-11-base.img.xz | sudo dd of=/dev/sdX bs=4M status=progress conv=fsync` (replace `/dev/sdX` with your SD card or USB drive).
-3. **DO NOT enable Imager's "OS Customisation" step** (username, password, SSH, wifi). The image has these baked in. Imager's customisation step is unreliable and will silently overwrite the baked-in config, leaving you with a default image.
 4. **Boot** the Pi. First boot takes ~60-90 seconds.
 5. **Connect** to `reticulumpi.local` (or `reticulumpi` over wifi):
    - Web launcher: http://reticulumpi.local/
