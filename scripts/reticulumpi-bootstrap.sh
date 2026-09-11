@@ -121,11 +121,19 @@ if [ "$(id -u)" -ne "$(id -u pi)" ] && [ "$(whoami)" != "pi" ]; then
     warn "not running as pi; some phases may fail. continue anyway."
 fi
 
-# Is this bookworm?
-if ! grep -q 'bookworm' /etc/os-release 2>/dev/null; then
-    fail "this script targets Debian 12 (bookworm). /etc/os-release does not say bookworm."
+# Is this a supported Debian release?
+# 2026-09-10: Pi OS Lite now ships trixie (Debian 13) by default.
+# We accept both bookworm (Debian 12) and trixie (Debian 13).
+if ! grep -qE 'bookworm|trixie' /etc/os-release 2>/dev/null; then
+    fail "this script targets Pi OS Lite bookworm or trixie. /etc/os-release does not match."
 fi
-ok "OS is bookworm"
+if grep -q 'trixie' /etc/os-release 2>/dev/null; then
+    ok "OS is trixie (Debian 13)"
+    PIOS_RELEASE="trixie"
+else
+    ok "OS is bookworm (Debian 12)"
+    PIOS_RELEASE="bookworm"
+fi
 
 # Architecture check
 ARCH=$(uname -m)
@@ -421,7 +429,7 @@ export DEBIAN_FRONTEND=noninteractive
 if [ ! -f /etc/apt/sources.list.d/zerotier.list ]; then
     curl -fsSL 'https://raw.githubusercontent.com/zerotier/ZeroTierOne/main/doc/contact%40zerotier.com.gpg' \
         | sudo gpg --dearmor -o /usr/share/keyrings/zerotier-archive-keyring.gpg
-    echo 'deb [signed-by=/usr/share/keyrings/zerotier-archive-keyring.gpg] https://download.zerotier.com/debian/bookworm bookworm main' \
+    echo "deb [signed-by=/usr/share/keyrings/zerotier-archive-keyring.gpg] https://download.zerotier.com/debian/${PIOS_RELEASE} ${PIOS_RELEASE} main" \
         | sudo tee /etc/apt/sources.list.d/zerotier.list
     ok "ZeroTier apt source added"
 else
