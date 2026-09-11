@@ -3,11 +3,9 @@
 <img width="937" height="888" alt="Screenshot from 2026-09-10 10-01-10" src="https://github.com/user-attachments/assets/34044319-720a-46a2-9af4-cb7a1ad74951" />
 
 
-## Quick start — pre-built image (recommended)
+## Pre-built image (recommended)
 
-Download the latest captured image and flash it directly. No Pi Imager
-customisation, no bootstrap script, no firstboot config dance. Works
-on first boot.
+Download the latest captured image and flash it directly. 
 
 **Latest:** `v1.0.0` — 2026-09-11
 - Image: [reticulum-pi-2026-09-11-base.img.xz](https://github.com/smeshT/reticulumpi/releases/download/v1.0.0/reticulum-pi-2026-09-11-base.img.xz) (922 MB)
