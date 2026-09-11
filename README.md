@@ -3,21 +3,42 @@
 <img width="937" height="888" alt="Screenshot from 2026-09-10 10-01-10" src="https://github.com/user-attachments/assets/34044319-720a-46a2-9af4-cb7a1ad74951" />
 
 
-This is a very much a work-in-progress image build for a Raspberry pi 
-to allow HF digital mode comms over a wifi connection to a PC or phone. 
-Built on top of Light Fighter Manifesto's ReticulumHF 
-(https://github.com/LFManifesto/ReticulumHF) it adds a wifi setup page 
-to connect to your wifi network (must add a USB wifi dongle to the pi) 
-and an apps launcher page to start your favorite digital modem. 
-Includes JS8Call, WSJT-X, FlRig, FlDigi and PATmenu (not currently 
-working).On the Reticulum side it adds Meshchat to enable running your 
-own node from the pi and connecting other interfaces to a central hub
-rather than from the EUD. Freedvtnc2 is able to be ran as a freestanding 
-keyboard chat app as well to allow direct testing of the hf transport 
-medium. 
-Built with much AI assistance; Openclaw and Minimax M3
+## Quick start — pre-built image (recommended)
 
-## Build from script
+Download the latest captured image and flash it directly. No Pi Imager
+customisation, no bootstrap script, no firstboot config dance. Works
+on first boot.
+
+**Latest:** `v1.0.0` — 2026-09-11
+- Image: [reticulum-pi-2026-09-11-base.img.xz](https://github.com/smeshT/reticulumpi/releases/download/v1.0.0/reticulum-pi-2026-09-11-base.img.xz) (922 MB)
+- Manifest: [reticulum-pi-2026-09-11-base.manifest.json](https://github.com/smeshT/reticulumpi/releases/download/v1.0.0/reticulum-pi-2026-09-11-base.manifest.json)
+- MD5: `075c5515773087376260147ef2c4f961`
+- SHA256: `27e8e7fc44485d83de13fc5e17aacafb82cb33177e66c3759ce6b2ab9a8dc031`
+
+**Flash instructions:**
+
+1. **Download** the `.img.xz` file (about 922 MB; will expand to ~30 GB when flashed).
+2. **Flash** with Raspberry Pi Imager (any OS) or `dd` on Linux:
+   - **Pi Imager:** choose "Use custom image" → select the `.img.xz` file directly. Imager decompresses automatically.
+   - **Linux dd:** `xzcat reticulum-pi-2026-09-11-base.img.xz | sudo dd of=/dev/sdX bs=4M status=progress conv=fsync` (replace `/dev/sdX` with your SD card or USB drive).
+3. **DO NOT enable Imager's "OS Customisation" step** (username, password, SSH, wifi). The image has these baked in. Imager's customisation step is unreliable and will silently overwrite the baked-in config, leaving you with a default image.
+4. **Boot** the Pi. First boot takes ~60-90 seconds.
+5. **Connect** to `reticulumpi.local` (or `reticulumpi` over wifi):
+   - SSH: `ssh pi@reticulumpi.local` — password `reticulumpi`
+   - Web launcher: http://reticulumpi.local/
+   - ReticulumHF setup wizard: http://reticulumpi.local:8080/
+   - noVNC remote desktop: http://reticulumpi.local:6080/vnc_auto.html
+6. **Wifi AP:** the Pi broadcasts `ReticulumPi` (password `reticulumpi`) by default. Connect to it directly, or set your home wifi in the ReticulumHF setup wizard.
+
+**To run multiple copies:** clear the SSH host key cache between boxes:
+`ssh-keygen -R reticulumpi.local`
+
+## Build from script (advanced / dev only)
+
+If you want to build from scratch (e.g., to customize, or to test new
+launcher versions before we capture a new image), the legacy flow is
+still supported:
+
 1. Flash a fresh Raspberry Pi OS Lite 64-bit image to an SD card or USB
 drive with Raspberry pi imager. It is **highly** recommended to use the
 OS Customization settings prior to starting the flash to enable SSH.
@@ -43,6 +64,15 @@ curl -sSL https://raw.githubusercontent.com/smeshT/reticulumpi/main/scripts/reti
 ```
 If you are building multiple copies you will get an SSH warning, clear with
 `ssh-keygen -R reticulumpi.local`
+
+**Note:** as of 2026-09-11, the Pi Imager customisation step
+(specifically: writing `userconf.txt` to the boot partition to set
+username + password) is unreliable. The customisation is silently
+dropped, leaving the SD card with a default image that has no user
+and no SSH. If your first-boot SSH doesn't work, the workaround is
+to mount the boot partition and write `userconf.txt` by hand before
+the first boot. We strongly recommend using the **pre-built image**
+above instead.
 
 ## What's here
 check [Releases](releases/README.md) for up to date list.
