@@ -34,7 +34,7 @@ of the ways below.
 
 **Note 1st boot will take 5+ min until ready to connect**
 
-4. Once connected open a terminal on a connected device and copy and paste
+3. Once connected open a terminal on a connected device and copy and paste
 the block below. pi@reticulumpi's password is `reticulumpi`.
 
 ``` bash
