@@ -8,7 +8,7 @@
 Download the latest captured image and flash it directly. 
 
 **Latest:** `v1.0.0` — 2026-09-11
-- Image: [reticulum-pi-2026-09-11-base.img.xz](https://github.com/smeshT/reticulumpi/releases/download/v1.0.0/reticulum-pi-2026-09-11-base.img.xz) (922 MB)
+- Image: [reticulum-pi-2026-09-11-base.img.xz](https://github.com/smeshT/reticulumpi/releases/download/v1.0.0/reticulum-pi-2026-09-11-base.img.xz) (876 MB)
 - Manifest: [reticulum-pi-2026-09-11-base.manifest.json](https://github.com/smeshT/reticulumpi/releases/download/v1.0.0/reticulum-pi-2026-09-11-base.manifest.json)
 - MD5: `075c5515773087376260147ef2c4f961`
 - SHA256: `27e8e7fc44485d83de13fc5e17aacafb82cb33177e66c3759ce6b2ab9a8dc031`
@@ -22,14 +22,11 @@ Download the latest captured image and flash it directly.
 3. **DO NOT enable Imager's "OS Customisation" step** (username, password, SSH, wifi). The image has these baked in. Imager's customisation step is unreliable and will silently overwrite the baked-in config, leaving you with a default image.
 4. **Boot** the Pi. First boot takes ~60-90 seconds.
 5. **Connect** to `reticulumpi.local` (or `reticulumpi` over wifi):
-   - SSH: `ssh pi@reticulumpi.local` — password `reticulumpi`
    - Web launcher: http://reticulumpi.local/
-   - ReticulumHF setup wizard: http://reticulumpi.local:8080/
-   - noVNC remote desktop: http://reticulumpi.local:6080/vnc_auto.html
-6. **Wifi AP:** the Pi broadcasts `ReticulumPi` (password `reticulumpi`) by default. Connect to it directly, or set your home wifi in the ReticulumHF setup wizard.
+   - SSH: `ssh pi@reticulumpi.local` — password `reticulumpi
 
-**To run multiple copies:** clear the SSH host key cache between boxes:
-`ssh-keygen -R reticulumpi.local`
+6. **Wifi AP:** the Pi broadcasts `ReticulumPi` (password `reticulumpi`) by default. This allows for a direct connection
+to pi without a wifi or LAN network.
 
 ## Build from script (advanced / dev only)
 
@@ -37,40 +34,22 @@ If you want to build from scratch (e.g., to customize, or to test new
 launcher versions before we capture a new image), the legacy flow is
 still supported:
 
-1. Flash a fresh Raspberry Pi OS Lite 64-bit image to an SD card or USB
-drive with Raspberry pi imager. It is **highly** recommended to use the
-OS Customization settings prior to starting the flash to enable SSH.
-While you are there set the Hostname and password for the pi (this is
-what will be entered during the SSH-in process). If you will be connecting
-to the internet with wifi, set the network SSID and password also.
-  - click `Edit Settings`. When finished click `Yes` to use Custom
-    settings.
+1. Flash a fresh [ReticulumHF](https://github.com/LFManifesto/ReticulumHF/releases/tag/v1.0) image to an SD card or USB drive with Raspberry pi imager. 
   
-2. Boot pi with created image and connect pi to internet access with one
-of the ways below.
-  - if LAN was configured prior to flash, this is automatic
-  - ethernet to router; 
+2. Boot pi with created image and connect pi to internet access with an
+ethernet cable.
 
 **Note 1st boot will take 5+ min until ready to connect**
 
 3. Once connected open a terminal on a connected device and copy and paste
-the block below. pi@reticulumpi's password is `reticulumpi`.
+the block below. You will be prompted to enter a password; `reticulumhf`.
 
 ``` bash
-ssh pi@reticulumpi.local
+ssh pi@reticulumhf.local
 curl -sSL https://raw.githubusercontent.com/smeshT/reticulumpi/main/scripts/reticulumpi-bootstrap.sh | bash
 ```
 If you are building multiple copies you will get an SSH warning, clear with
 `ssh-keygen -R reticulumpi.local`
-
-**Note:** as of 2026-09-11, the Pi Imager customisation step
-(specifically: writing `userconf.txt` to the boot partition to set
-username + password) is unreliable. The customisation is silently
-dropped, leaving the SD card with a default image that has no user
-and no SSH. If your first-boot SSH doesn't work, the workaround is
-to mount the boot partition and write `userconf.txt` by hand before
-the first boot. We strongly recommend using the **pre-built image**
-above instead.
 
 ## What's here
 check [Releases](releases/README.md) for up to date list.
