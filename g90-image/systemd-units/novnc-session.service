@@ -7,6 +7,12 @@ StartLimitBurst=5
 [Service]
 Type=simple
 User=pi
+# RuntimeDirectory=1000 makes systemd create /run/user/1000 owned by
+# the pi user before starting the service. This fixes a Permission
+# denied error on first boot when /run/user/ doesn't pre-exist for
+# the pi user.
+RuntimeDirectory=1000
+RuntimeDirectoryMode=0700
 Environment=DISPLAY=:1
 Environment=XDG_RUNTIME_DIR=/run/user/1000
 ExecStart=/home/pi/.local/bin/start-novnc-session

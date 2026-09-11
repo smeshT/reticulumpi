@@ -21,8 +21,13 @@ set -e
 export DISPLAY=:1
 export XDG_RUNTIME_DIR=/run/user/1000
 
-mkdir -p "$XDG_RUNTIME_DIR"
-chmod 700 "$XDG_RUNTIME_DIR"
+# Create $XDG_RUNTIME_DIR if missing. With RuntimeDirectory=1000 in
+# the systemd unit, this dir is created by systemd before us, so
+# mkdir is a no-op. If for some reason it's not (e.g. running the
+# script manually outside systemd), best-effort create it; failure
+# is non-fatal because openbox + x11vnc may still work without it.
+mkdir -p "$XDG_RUNTIME_DIR" 2>/dev/null || true
+chmod 700 "$XDG_RUNTIME_DIR" 2>/dev/null || true
 
 # Start Xvfb (the virtual display)
 Xvfb :1 -screen 0 1280x720x24 &
