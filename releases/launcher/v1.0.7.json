@@ -1,0 +1,87 @@
+{
+  "release": "v1.0.7",
+  "release_date": "2026-09-19",
+  "image_baseline": "pi-os-lite-2026-09-10",
+  "channel": "https://github.com/smeshT/reticulumpi.git",
+  "branch": "main",
+  "components": {
+    "launcher": {
+      "type": "github-pull",
+      "auto_update": true,
+      "source_path": "/"
+    },
+    "systemd_units": [
+      {
+        "name": "g90-shared-launcher.service",
+        "required": true
+      },
+      {
+        "name": "reticulumhf-rnsd.service",
+        "required": true
+      },
+      {
+        "name": "meshchatx.service",
+        "required": true
+      },
+      {
+        "name": "lxmd.service",
+        "required": true
+      },
+      {
+        "name": "enable-linger.service",
+        "required": true,
+        "note": "keeps user@1000.service alive without login sessions; prevents PulseAudio from dying when all SSH sessions close"
+      },
+      {
+        "name": "pulseaudio-suspend-fix.service",
+        "required": false,
+        "note": "one-shot: disables module-suspend-on-idle so USB audio stays visible to JS8Call"
+      }
+    ],
+    "pip_packages": [
+      {
+        "venv": "rns",
+        "package": "rns",
+        "min_version": "1.4.0"
+      },
+      {
+        "venv": "rns",
+        "package": "lxmf",
+        "min_version": "1.1.0"
+      },
+      {
+        "venv": "reticulum-meshchatx",
+        "package": "reticulum-meshchatx",
+        "min_version": "4.8.0"
+      }
+    ],
+    "config_files": [
+      {
+        "path": "/home/pi/.reticulum/config",
+        "required": true
+      },
+      {
+        "path": "/etc/systemd/system/meshchatx.service",
+        "required": true
+      },
+      {
+        "path": "/usr/local/bin/restart-meshchatx",
+        "required": true,
+        "mode": "0755"
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/start_pavucontrol.sh",
+        "required": true,
+        "mode": "0755"
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/stop_pavucontrol.sh",
+        "required": true,
+        "mode": "0755"
+      }
+    ]
+  },
+  "notes": "v1.0.7: post-install hook runs linger AFTER restart (was failing silently) new systemd units from overlay; enable-linger.service (keeps user services alive without login sessions; fixes JS8Call audio dying after SSH close); pulseaudio-suspend-fix.service (disables module-suspend-on-idle so USB audio device stays visible to JS8Call)",
+  "milestone": true,
+  "milestone_summary": "Fix three JS8Call audio failures: (1) linger not enabled — user@1000.service killed by logind after idle timeout, PulseAudio dies; (2) module-suspend-on-idle suspends USB audio codec, JS8Call can't see it; (3) update button now auto-installs new systemd units from overlay"
+}
