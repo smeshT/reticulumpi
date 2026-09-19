@@ -948,6 +948,40 @@ def update_from_server():
                 )
             log_lines.append(f"git checkout {latest_tag} OK")
 
+            # --- post-install: install new systemd units from overlay -----------
+            # New releases may add service files (enable-linger,
+            # pulseaudio-suspend-fix, etc.) that live in the overlay
+            # under g90-image/systemd-units/. Copy any new .service files
+            # to /etc/systemd/system/ and enable them. Idempotent: a
+            # service already installed and enabled is a no-op.
+            overlay_units = os.path.join(LAUNCHER_DIR, "g90-image", "systemd-units")
+            if os.path.isdir(overlay_units):
+                import glob as _glob
+                for src in _glob.glob(os.path.join(overlay_units, "*.service")):
+                    svc = os.path.basename(src)
+                    dst = os.path.join("/etc/systemd/system/", svc)
+                    # Only copy if the source is newer or destination doesn't exist
+                    if not os.path.exists(dst) or \
+                       os.path.getmtime(src) > os.path.getmtime(dst):
+                        subprocess.run(
+                            ["sudo", "-n", "cp", src, dst],
+                            capture_output=True, text=True, timeout=5
+                        )
+                        log_lines.append(f"installed {svc}")
+                # Enable any new services (systemctl enable is idempotent)
+                for svc in ["enable-linger", "pulseaudio-suspend-fix"]:
+                    r = subprocess.run(
+                        ["sudo", "-n", "systemctl", "enable", svc],
+                        capture_output=True, text=True, timeout=5
+                    )
+                    if r.returncode == 0:
+                        log_lines.append(f"enabled {svc}")
+                # Always daemon-reload after installing units
+                subprocess.run(
+                    ["sudo", "-n", "systemctl", "daemon-reload"],
+                    capture_output=True, timeout=5
+                )
+
         # Restart the service.
         subprocess.Popen(
             ["sudo", "-n", "systemctl", "restart", LAUNCHER_SERVICE],
