@@ -81,7 +81,7 @@
       }
     ]
   },
-  "notes": "v1.0.5: enable-linger.service (keeps user services alive without login sessions; fixes JS8Call audio dying after SSH session close); pulseaudio-suspend-fix.service (disables module-suspend-on-idle so USB audio device stays visible to JS8Call); BUILD.md updated to install+enable both during image build",
+  "notes": "v1.0.5: post-install hook auto-installs new systemd units from overlay; enable-linger.service (keeps user services alive without login sessions; fixes JS8Call audio dying after SSH close); pulseaudio-suspend-fix.service (disables module-suspend-on-idle so USB audio device stays visible to JS8Call)",
   "milestone": true,
-  "milestone_summary": "Fix two root causes of JS8Call audio failure: (1) linger not enabled — user@1000.service killed by logind after idle timeout, PulseAudio dies with it; (2) module-suspend-on-idle suspends USB audio codec, JS8Call can't see it"
+  "milestone_summary": "Fix three JS8Call audio failures: (1) linger not enabled — user@1000.service killed by logind after idle timeout, PulseAudio dies; (2) module-suspend-on-idle suspends USB audio codec, JS8Call can't see it; (3) update button now auto-installs new systemd units from overlay"
 }
