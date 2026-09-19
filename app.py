@@ -982,6 +982,19 @@ def update_from_server():
                     capture_output=True, timeout=5
                 )
 
+            # --- post-install: enable linger for pi user ---------------------------
+            # Ensures user@1000.service (and thus PulseAudio) survives without
+            # any active login session. Required on Bookworm systemd where
+            # StopIdleSessionSec defaults to ~10s — without linger, closing
+            # all SSH sessions kills the user manager and PulseAudio dies.
+            # loginctl enable-linger is idempotent — safe to re-run.
+            linger = subprocess.run(
+                ["sudo", "-n", "loginctl", "enable-linger", "pi"],
+                capture_output=True, text=True, timeout=5
+            )
+            if linger.returncode == 0:
+                log_lines.append("enabled linger for pi user")
+
         # Restart the service.
         subprocess.Popen(
             ["sudo", "-n", "systemctl", "restart", LAUNCHER_SERVICE],
