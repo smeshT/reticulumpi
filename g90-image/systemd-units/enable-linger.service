@@ -1,0 +1,21 @@
+[Unit]
+# /etc/systemd/system/enable-linger.service
+# Enables lingering for the pi user so user services (PulseAudio, etc.)
+# survive without any active login session.
+#
+# Without this, systemd-logind kills user@1000.service after the
+# StopIdleSessionSec timeout (~10s on Bookworm) when all sessions close.
+# PulseAudio dies with it, breaking JS8Call audio on next start.
+#
+# This is the persistent equivalent of: sudo loginctl enable-linger pi
+
+Description=Enable lingering for pi user (keeps user services alive without login sessions)
+After=systemd-logind.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/loginctl enable-linger pi
+
+[Install]
+WantedBy=multi-user.target

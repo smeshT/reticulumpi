@@ -1,0 +1,22 @@
+[Unit]
+# /etc/systemd/system/pulseaudio-suspend-fix.service
+# One-shot: comment out module-suspend-on-idle in PulseAudio default.pa.
+# Without this, PulseAudio auto-suspends the USB audio codec when idle,
+# and JS8Call (and other apps) fail to see the audio device.
+# Symptom: audio device missing from JS8Call list even though aplay -l
+# shows the USB audio card correctly.
+#
+# Runs on first boot only. Idempotent — subsequent boots skip the patch.
+
+Description=Fix PulseAudio suspend-on-idle breaking USB audio for JS8Call
+DefaultDependencies=no
+After=local-fs.target
+Before=pulseaudio.service
+ConditionPathExists=/etc/pulse/default.pa
+ConditionPathExists=!/var/lib/pulseaudio-suspend-fix.done
+
+[Service]
+Type=oneshot
+RemainAfterExit=no
+ExecStart=/bin/sed -i 's|^load-module module-suspend-on-idle|# load-module module-suspend-on-idle  # DISABLED: breaks USB audio for JS8Call|' /etc/pulse/default.pa
+ExecStart=/usr/bin/touch /var/lib/pulseaudio-suspend-fix.done

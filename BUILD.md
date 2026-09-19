@@ -380,17 +380,22 @@ sudo cp g90-image/systemd-units/g90-shared-launcher.service /etc/systemd/system/
 sudo cp g90-image/systemd-units/meshchatx.service /etc/systemd/system/
 sudo cp g90-image/systemd-units/lxmd.service /etc/systemd/system/
 sudo cp g90-image/systemd-units/pat-http.service /etc/systemd/system/
+sudo cp g90-image/systemd-units/enable-linger.service /etc/systemd/system/
+sudo cp g90-image/systemd-units/pulseaudio-suspend-fix.service /etc/systemd/system/
 # restart-meshchatx is a binary, not a unit; lives at /usr/local/bin/
 sudo cp g90-image/systemd-units/restart-meshchatx /usr/local/bin/
 sudo chmod +x /usr/local/bin/restart-meshchatx
+
+sudo systemctl enable enable-linger.service
+sudo systemctl enable pulseaudio-suspend-fix.service
 ```
 
 ## verify
 
 ```bash
-ls -la /etc/systemd/system/{g90-shared-launcher,meshchatx,lxmd,pat-http}.service
+ls -la /etc/systemd/system/{g90-shared-launcher,meshchatx,lxmd,pat-http,enable-linger,pulseaudio-suspend-fix}.service
 ls -la /usr/local/bin/restart-meshchatx
-# expected: 4 unit files + 1 binary, all present
+# expected: 6 unit files + 1 binary, all present
 ```
 
 ```bash
