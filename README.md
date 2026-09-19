@@ -23,7 +23,7 @@ Download the latest captured image and flash it directly.
 5. **Connect**
    - Ethernet cable to router.
       - If using a USB wifi dongle, this can now be configured with the "Wifi" button on the Web launcher page above.
-   - Or; AP wifi. The Pi broadcasts `ReticulumPi` (password `reticulumpi`) by default. This allows for a direct
+   - Or; AP wifi. The Pi broadcasts `g90digi` (password `CHANGE_ME`) by default. This allows for a direct
 connection to pi without a wifi or LAN network.
 6. **Use**
    - Web launcher: http://reticulumpi.local/
