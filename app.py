@@ -86,7 +86,7 @@ def modem73_in_reticulum():
     freedvtnc2.service already does its own enable/disable --now
     cycle. modem73 has no systemd unit, so we drive
     enable/disable through the Reticulum config block + rnsd
-    restart (handled by toggle_modem73_audio.sh).
+    restart (handled by toggle_modem73_interface.sh).
 
     Implementation added on g90test 2026-09-04; promoted to the
     canonical recipe in reticulumpi 2026-09-04.
@@ -145,7 +145,7 @@ def run_script(name, args=None):
     invocation. Pattern source: sbitx's my_launcher/run_script. The
     g90 launcher (and g90test) originally only had the no-args
     form; 2026-09-04 upgrade added args support so the modem73
-    toggle can pass "on" or "off" to toggle_modem73_audio.sh.
+    toggle can pass "on" or "off" to toggle_modem73_interface.sh.
     """
     cmd = [f"{SCRIPTS}/{name}"]
     if args:
@@ -664,7 +664,7 @@ def start_modem73_loopback():
     Competing audio modems (js8call, wsjtx, fldigi, pavucontrol)
     are pkill'd first because they may hold the ALSA loopback
     subdevs that modem73 needs."""
-    run_script("toggle_modem73_audio.sh", args=["on"])
+    run_script("toggle_modem73_interface.sh", args=["on"])
     return redirect(url_for("index"))
 
 
@@ -676,7 +676,7 @@ def stop_modem73_loopback():
     Frees the ALSA loopback subdevs for js8call/wsjtx/fldigi/freedvtnc2.
     rnsd is restarted so it stops trying to TCP-connect to modem73's
     KISS port."""
-    run_script("toggle_modem73_audio.sh", args=["off"])
+    run_script("toggle_modem73_interface.sh", args=["off"])
     return redirect(url_for("index"))
 
 
