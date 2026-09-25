@@ -1,14 +1,20 @@
 #!/bin/bash
 # restart-meshchatx: handler for the wifi captive-portal "Restart MeshChatX"
-# button. Idempotent — clears a previously-failed state and restarts the
-# service so a fresh web UI is reachable on TCP/8000 (was 9100 pre-2026-09-08).
+# button. Kills lxmd first so it reconnects to rnsd fresh, then restarts
+# both. This ordering matters: lxmd must not beat rnsd to the shared instance
+# (which would cause rnsd to not properly load the Modem73Interface).
 set -e
-sudo systemctl reset-failed meshchatx.service
+sudo systemctl reset-failed meshchatx.service lxmd.service 2>/dev/null || true
+# Kill lxmd first so it releases its hold on the shared instance AF_UNIX socket.
+# When rnsd later reloads interfaces, it will properly register them.
+sudo systemctl stop lxmd.service
 sudo systemctl restart meshchatx.service
-# Brief wait so the caller can immediately GET /api/v1/status without
-# hitting a connection-refused window. ~3s is enough on a Pi 5 with
-# Python interpreter startup.
+sleep 3
+sudo systemctl restart lxmd.service
 sleep 3
 sudo systemctl is-active --quiet meshchatx.service \
   && echo "meshchatx.service active" \
-  || (echo "meshchatx.service FAILED to come up"; journalctl -u meshchatx.service --no-pager -n 10; exit 1)
+  || (echo "meshchatx.service FAILED"; journalctl -u meshchatx.service --no-pager -n 10; exit 1)
+sudo systemctl is-active --quiet lxmd.service \
+  && echo "lxmd.service active" \
+  || (echo "lxmd.service FAILED"; journalctl -u lxmd.service --no-pager -n 10; exit 1)

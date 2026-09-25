@@ -2,6 +2,7 @@
 Description=LXMF Propagation Node Daemon (lxmd) for g90test
 After=network-online.target zerotier-one.service reticulumhf-rnsd.service
 Wants=zerotier-one.service reticulumhf-rnsd.service
+Requires=reticulumhf-rnsd.service
 
 [Service]
 Type=simple
