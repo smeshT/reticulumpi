@@ -476,17 +476,25 @@ def disconnect():
                 zt_network_id=get_zerotier_network_id()
             )
 
-        # Disconnect STA and fall back to the AP.
+        # Use 'connection down' instead of 'device disconnect' — it properly
+        # fires the dispatcher (ACTION=down) so the AP fallback fires automatically.
+        # Then wait for NM to settle before checking state.
         subprocess.check_output(
-            ["sudo", "nmcli", "device", "disconnect", client_iface],
-            text=True,
-            stderr=subprocess.STDOUT
+            ["sudo", "nmcli", "connection", "down", "reticulumpi-sta"],
+            text=True
         )
-        subprocess.check_output(
-            ["sudo", "nmcli", "connection", "up", "reticulumpi-hotspot"],
-            text=True,
-            stderr=subprocess.STDOUT
+        time.sleep(3)
+
+        # Verify hotspot is up; if dispatcher missed it, bring it up manually.
+        hotspot_active = subprocess.check_output(
+            ["sudo", "nmcli", "-t", "-f", "NAME", "connection", "show", "--active"],
+            text=True
         )
+        if "reticulumpi-hotspot" not in hotspot_active:
+            subprocess.check_output(
+                ["sudo", "nmcli", "connection", "up", "reticulumpi-hotspot"],
+                text=True
+            )
 
         return render_template(
             "index.html",
