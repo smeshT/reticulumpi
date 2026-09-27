@@ -169,5 +169,14 @@ ZeroTier: {{ zt_ip if zt_ip else 'Not joined' }}
 
 <hr>
 
+<script>
+function togglePassword() {
+    var p = document.getElementById('password');
+    if (p) {
+        p.type = p.type === 'password' ? 'text' : 'password';
+    }
+}
+</script>
+
 </body>
 </html>
