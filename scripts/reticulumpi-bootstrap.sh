@@ -540,6 +540,12 @@ fi
 # Flush any stale IP left by a previous hostapd run so NM can claim wlan0 cleanly.
 sudo ip addr flush dev wlan0 2>/dev/null || true
 
+# Kill any dnsmasq running on port 67 — the ReticulumHF base image runs its own
+# dnsmasq for DHCP, which conflicts with NM's internal dnsmasq for the hotspot AP.
+# Also mask the service so it can't restart or grab port 67 on reboot.
+sudo killall dnsmasq 2>/dev/null || true
+sudo systemctl mask dnsmasq 2>/dev/null || true
+
 if [ -n "$RETICULUMPI_CLIENT_SSID" ]; then
     # Credentials provided — try STA first, fall back to hotspot on failure.
     if sudo nmcli connection up reticulumpi-sta 2>/dev/null; then
