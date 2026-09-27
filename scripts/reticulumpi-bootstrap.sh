@@ -398,6 +398,34 @@ sudo mkdir -p /var/lib/NetworkManager
 echo -e "[main]\nNetworkingEnabled=true\nWimaxEnabled=true\nWirelessEnabled=true\nWWANEnabled=true" | \
     sudo tee /var/lib/NetworkManager/NetworkManager.state > /dev/null
 
+# Fix NM ifupdown managed=false (ReticulumHF base image sets this,
+# which makes NM treat ALL interfaces as unmanaged).
+# Also disable NM's wifi.rfkill-state handling so we control rfkill ourselves.
+if grep -q "managed=false" /etc/NetworkManager/NetworkManager.conf 2>/dev/null; then
+    sudo sed -i "s/managed=false/managed=true/" /etc/NetworkManager/NetworkManager.conf
+    ok "NM: ifupdown managed=true (was false)"
+else
+    ok "NM: ifupdown managed already true"
+fi
+
+# Ensure /var/lib/NetworkManager/ exists with WiFi enabled
+sudo mkdir -p /var/lib/NetworkManager
+if [ ! -f /var/lib/NetworkManager/NetworkManager.state ]; then
+    echo -e "[main]\nNetworkingEnabled=true\nWimaxEnabled=true\nWirelessEnabled=true\nWWANEnabled=true" | \
+        sudo tee /var/lib/NetworkManager/NetworkManager.state > /dev/null
+    ok "NM state file created"
+else
+    ok "NM state file already exists"
+fi
+
+# Clear rfkill saved state for wlan0 so systemd-rfkill doesnt re-block it.
+# Also mask systemd-rfkill so it cant undo our rfkill clearing.
+if [ -f /var/lib/systemd/rfkill/platform-fe300000.mmcnr:wlan ]; then
+    echo -n 0 | sudo tee /var/lib/systemd/rfkill/platform-fe300000.mmcnr:wlan > /dev/null
+    ok "rfkill saved state cleared"
+fi
+sudo systemctl mask systemd-rfkill systemd-rfkill.socket 2>/dev/null || true
+
 # Ensure NetworkManager manages wlan0 (remove any unmanaged marking).
 # If /etc/NetworkManager/conf.d/unmanaged-wlan0.conf exists from a previous
 # run, remove it — we need NM to own wlan0 now.
@@ -481,6 +509,22 @@ sudo nmcli connection add \
 ok "reticulumpi-hotspot profile written (SSID=$RETICULUMPI_SSID, 10.0.0.5/24)"
 
 # --- Bring up the correct profile for this boot ---
+# Wait for wlan0 to become available (NM reports it as unavailable after
+# hostapd is stopped; polling loop gives the brcmfmac driver time to settle).
+WAIT_COUNT=0
+while [ $WAIT_COUNT -lt 15 ]; do
+    WLAN_STATE=$(nmcli -t -f STATE device status 2>/dev/null | grep "^wlan0:" | cut -d: -f2 | tr -d " ")
+    if [ "$WLAN_STATE" = "available" ] || [ "$WLAN_STATE" = "connected" ]; then
+        break
+    fi
+    sleep 2
+    WAIT_COUNT=$((WAIT_COUNT + 1))
+done
+
+if [ $WAIT_COUNT -ge 15 ]; then
+    warn "wlan0 did not become available within 30s — check rfkill and brcmfmac firmware"
+fi
+
 if [ -n "$RETICULUMPI_CLIENT_SSID" ]; then
     # Credentials provided — try STA first, fall back to hotspot on failure.
     if sudo nmcli connection up reticulumpi-sta 2>/dev/null; then
