@@ -211,49 +211,13 @@ def service_status(service_name):
 
 def get_client_wifi_iface():
     """
-    Return the wifi device that is NOT the hostapd AP, or None.
+    Return the single wifi interface name ('wlan0').
 
-    The g90digi image runs hostapd on the onboard wifi (wlan0) as the
-    local AP. When a USB wifi dongle is plugged in for client-mode
-    scanning/connecting to a home AP, it enumerates as some other iface
-    (wlan1 on a clean Bookworm install, wlan2 if something else got
-    there first). This helper finds it dynamically so the code does
-    not have to hardcode 'wlan1'.
-
-    Detection: nmcli reports the hostapd AP iface as 'unmanaged'
-    (NetworkManager doesn't own it). Any other wifi device is the
-    client radio. Returns the iface name (e.g. 'wlan1') or None if
-    no client radio is present.
+    Digipi single-wlan0 pattern: wlan0 handles both AP and STA roles
+    via NetworkManager. There is no separate client-only interface.
+    This function always returns 'wlan0' — the only wifi iface that exists.
     """
-    try:
-        output = subprocess.check_output(
-            [
-                "sudo",
-                "nmcli",
-                "-t",
-                "-f",
-                "DEVICE,STATE",
-                "device",
-                "status",
-            ],
-            text=True,
-            stderr=subprocess.STDOUT,
-        )
-    except subprocess.CalledProcessError:
-        return None
-
-    for line in output.splitlines():
-        parts = line.split(":")
-        if len(parts) < 2:
-            continue
-        iface, state = parts[0].strip(), parts[1].strip()
-        if not iface.startswith("wlan") and not iface.startswith("wlx"):
-            continue
-        if state == "unmanaged":
-            continue
-        return iface
-
-    return None
+    return "wlan0"
 
 def get_current_host_ip():
     return request.host.split(":")[0]
@@ -384,73 +348,78 @@ def connect():
         )
 
     try:
-        client_iface = get_client_wifi_iface()
+        # Digipi single-wlan0 pattern: wlan0 is always the interface.
+        # NM owns it. We update the reticulumpi-sta profile with the new
+        # SSID/password, then bring it up. If STA fails (wrong password,
+        # out of range), fall back to the hotspot AP.
 
-        if client_iface is None:
-            return render_template(
-                "index.html",
-                message="Plug in a USB WiFi adapter before connecting to a network.",
-                wifi_status=get_wifi_status(),
-                portal_url=get_portal_url(),
-                ap_name=get_ap_name(),
-                hostname=get_hostname(),
-                lan_ip=get_lan_ip(),
-                zt_ip=get_zerotier_ip(),
-                zt_network_id=get_zerotier_network_id()
-            )
+        client_iface = get_client_wifi_iface()  # always 'wlan0'
 
+        # 1. Tear down whatever is currently active on wlan0.
+        # This is safe — nmcli dev disconnect does NOT release the iface,
+        # it just brings down the current profile. wlan0 stays up.
+        subprocess.check_output(
+            ["sudo", "nmcli", "device", "disconnect", client_iface],
+            text=True,
+            stderr=subprocess.STDOUT
+        )
+
+        # 2. Update the reticulumpi-sta profile with the new credentials.
+        # If the profile doesn't exist yet, nmcli modify creates it.
         subprocess.check_output(
             [
-                "sudo",
-                "nmcli",
-                "device",
-                "set",
-                client_iface,
-                "managed",
-                "yes"
+                "sudo", "nmcli", "connection", "modify",
+                "reticulumpi-sta",
+                "wifi.ssid", ssid,
+                "wifi-sec.key-mgmt", "wpa-psk",
+                "wifi-sec.psk", password,
+                "connection.autoconnect", "yes",
+                "connection.autoconnect-retries", "0",
             ],
             text=True,
             stderr=subprocess.STDOUT
         )
 
-        output = subprocess.check_output(
-            [
-                "sudo",
-                "nmcli",
-                "dev",
-                "wifi",
-                "connect",
-                ssid,
-                "password",
-                password,
-		"ifname",
-		client_iface
-            ],
+        # 3. Bring up the STA profile. NM handles wpa_supplicant internally.
+        up_output = subprocess.check_output(
+            ["sudo", "nmcli", "connection", "up", "reticulumpi-sta"],
             text=True,
             stderr=subprocess.STDOUT
         )
-
-        output = output.replace("\x1b[2K", "")
 
         return render_template(
             "index.html",
             wifi_status=get_wifi_status(),
-            message="WiFi connected. Connect your device to the same WiFi network, then open the Browser Address shown above.",
+            message=(
+                f"WiFi connected to '{ssid}'. "
+                f"Disconnect from the AP, join '{ssid}' on your device, "
+                f"then open the launcher at the LAN IP shown above."
+            ),
             portal_url=get_portal_url(),
             ap_name=get_ap_name(),
             hostname=get_hostname(),
             lan_ip=get_lan_ip(),
             zt_ip=get_zerotier_ip(),
             zt_network_id=get_zerotier_network_id()
-       )
+        )
 
     except subprocess.CalledProcessError as error:
-
+        # STA connect failed (wrong password, out of range, etc.).
+        # Try to bring the hotspot back up so the operator can retry.
+        subprocess.check_output(
+            ["sudo", "nmcli", "connection", "up", "reticulumpi-hotspot"],
+            text=True,
+            stderr=subprocess.STDOUT
+        )
+        err_msg = (error.output or "").replace("\x1b[2K", "").strip()
         return render_template(
             "index.html",
             wifi_status=get_wifi_status(),
-            message="WiFi connection failed.",
-            command_output=error.output,
+            message=(
+                f"WiFi connection to '{ssid}' failed. "
+                f"AP restored — check your password and try again."
+            ),
+            command_output=err_msg,
             portal_url=get_portal_url(),
             ap_name=get_ap_name(),
             hostname=get_hostname(),
@@ -458,6 +427,34 @@ def connect():
             zt_ip=get_zerotier_ip(),
             zt_network_id=get_zerotier_network_id()
         )
+
+@app.route("/skip", methods=["POST"])
+def skip():
+    # Operator chooses to stay in AP mode without entering STA credentials.
+    # Ensure the hotspot profile is up. No-op if already on hotspot.
+    try:
+        subprocess.check_output(
+            ["sudo", "nmcli", "connection", "up", "reticulumpi-hotspot"],
+            text=True,
+            stderr=subprocess.STDOUT
+        )
+        message = (
+            f"Staying in AP mode. Connect to '{get_ap_name()}' at 10.0.0.5 "
+            f"to change WiFi settings later."
+        )
+    except subprocess.CalledProcessError:
+        message = "Could not activate AP mode."
+
+    return render_template(
+        "index.html",
+        message=message,
+        portal_url=get_portal_url(),
+        ap_name=get_ap_name(),
+        hostname=get_hostname(),
+        lan_ip=get_lan_ip(),
+        zt_ip=get_zerotier_ip(),
+        zt_network_id=get_zerotier_network_id()
+    )
 
 @app.route("/disconnect", methods=["POST"])
 def disconnect():
@@ -479,21 +476,21 @@ def disconnect():
                 zt_network_id=get_zerotier_network_id()
             )
 
+        # Disconnect STA and fall back to the AP.
         subprocess.check_output(
-            [
-                "sudo",
-                "nmcli",
-                "device",
-                "disconnect",
-                client_iface
-            ],
+            ["sudo", "nmcli", "device", "disconnect", client_iface],
+            text=True,
+            stderr=subprocess.STDOUT
+        )
+        subprocess.check_output(
+            ["sudo", "nmcli", "connection", "up", "reticulumpi-hotspot"],
             text=True,
             stderr=subprocess.STDOUT
         )
 
         return render_template(
             "index.html",
-            message=f"WiFi disconnected. Reconnect to {get_ap_name()} AP at {get_hostname()}.local or 192.168.4.1",
+            message=f"Disconnected. AP restored — reconnect to '{get_ap_name()}' at 10.0.0.5",
             wifi_status=get_wifi_status(),
             portal_url=get_portal_url(),
             ap_name=get_ap_name(),
