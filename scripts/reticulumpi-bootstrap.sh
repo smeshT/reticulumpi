@@ -344,7 +344,7 @@ if [ "$RETICULUMPI_AP_PASSWORD" = "reticulumpi" ]; then
     warn "  Note: AP password is the default 'reticulumpi'."
     warn "  Anyone within WiFi range can join the AP."
     warn "  Change via the node-portal /wifi page or:"
-    warn "  nmcli connection modify reticulumpi-hotspot wifi-sec.psk '<newpwd>'"
+    warn "  nmcli connection modify reticulumpi-hotspot 802-11-wireless-security.psk '<newpwd>'"
     warn "  nmcli connection up reticulumpi-hotspot"
     warn ""
 elif [ "${#RETICULUMPI_AP_PASSWORD}" -lt 8 ]; then
@@ -378,6 +378,25 @@ phase "Phase 1.5h: Configure wlan0 (digipi single-wlan0 pattern)"
 if [ ! -e /sys/class/net/wlan0 ]; then
     fail "wlan0 not found. This script requires a built-in wifi interface."
 fi
+# Old-image cleanup (reticulumpi image pre-2026-09-27):
+# The old image left wlan0 in a broken state: hostapd running on wlan0,
+# rfkill soft-blocked, and /var/lib/NetworkManager/ absent. Clean up
+# all of it so NM can manage wlan0 properly.
+sudo systemctl stop hostapd 2>/dev/null || true
+sudo systemctl disable hostapd 2>/dev/null || true
+sudo update-rc.d hostapd disable 2>/dev/null || true
+sudo killall hostapd 2>/dev/null || true
+# Remove any wpa_supplicant config that might claim wlan0
+sudo rm -f /etc/wpa_supplicant/wpa_supplicant-wlan0.conf 2>/dev/null || true
+# Clear rfkill saved state so it doesnt re-block wlan0
+if [ -f /var/lib/systemd/rfkill/platform-fe300000.mmcnr:wlan ]; then
+    echo -n 0 | sudo tee /var/lib/systemd/rfkill/platform-fe300000.mmcnr:wlan > /dev/null
+    ok "rfkill saved state cleared"
+fi
+# Ensure /var/lib/NetworkManager/ exists with WiFi enabled
+sudo mkdir -p /var/lib/NetworkManager
+echo -e "[main]\nNetworkingEnabled=true\nWimaxEnabled=true\nWirelessEnabled=true\nWWANEnabled=true" | \
+    sudo tee /var/lib/NetworkManager/NetworkManager.state > /dev/null
 
 # Ensure NetworkManager manages wlan0 (remove any unmanaged marking).
 # If /etc/NetworkManager/conf.d/unmanaged-wlan0.conf exists from a previous
@@ -411,19 +430,19 @@ HOTSPOT_UUID=$(echo -n "reticulumpi-hotspot-$RETICULUMPI_HOSTNAME" | sha256sum |
 # the dispatcher script (Phase 1.5i) brings up the hotspot instead.
 NMCLI_STA_ARGS=(
     connection.add
-    connection.type	wifi
+    type		802-11-wireless
     connection.ifname	wlan0
     connection.id	reticulumpi-sta
     connection.uuid	"$STA_UUID"
-    wifi.mode		infrastructure
+    802-11-wireless.mode	infrastructure
     wifi.ssid		"${RETICULUMPI_CLIENT_SSID:-}"
 )
 if [ -n "$RETICULUMPI_CLIENT_SSID" ]; then
     # Credentials provided at build time — write the STA profile active.
     # Password stored in the profile so NM can reconnect automatically.
     sudo nmcli "${NMCLI_STA_ARGS[@]}" \
-        wifi-sec.key-mgmt	wpa-psk \
-        wifi-sec.psk		"$RETICULUMPI_CLIENT_PASSWORD" \
+        802-11-wireless-security.key-mgmt	wpa-psk \
+        802-11-wireless-security.psk	"$RETICULUMPI_CLIENT_PASSWORD" \
         ipv4.method		auto \
         ipv6.method		ignore \
         connection.autoconnect	yes \
@@ -446,15 +465,15 @@ fi
 # AP mode, 10.0.0.5/24, no autoconnect.
 # Dispatcher brings this up when STA drops. Phase 1.5i installs the dispatcher.
 sudo nmcli connection add \
-    connection.type	wifi \
-    connection.ifname	wlan0 \
+    type		802-11-wireless \
+    ifname		wlan0 \
     connection.id	reticulumpi-hotspot \
     connection.uuid	"$HOTSPOT_UUID" \
-    wifi.mode		ap \
-    wifi.ssid		"$RETICULUMPI_SSID" \
-    wifi-sec.key-mgmt	wpa-psk \
-    wifi-sec.psk		"$RETICULUMPI_AP_PASSWORD" \
-    ipv4.method	shared \
+    802-11-wireless.mode	ap \
+    802-11-wireless.ssid	"$RETICULUMPI_SSID" \
+    802-11-wireless-security.key-mgmt	wpa-psk \
+    802-11-wireless-security.psk	"$RETICULUMPI_AP_PASSWORD" \
+    ipv4.method		shared \
     ipv4.address1	10.0.0.5/24 \
     ipv6.method		ignore \
     connection.autoconnect	no \
@@ -473,8 +492,13 @@ if [ -n "$RETICULUMPI_CLIENT_SSID" ]; then
     fi
 else
     # No credentials — start as AP on first boot.
-    sudo nmcli connection up reticulumpi-hotspot 2>/dev/null || true
-    ok "wlan0 up as AP (first boot, no home WiFi configured yet)"
+    if sudo nmcli connection up reticulumpi-hotspot 2>/dev/null; then
+        ok "wlan0 up as AP (first boot, no home WiFi configured yet)"
+    else
+        warn "Hotspot failed to activate — if this box was previously running"
+        warn "the old hostapd-based image, reboot to clear the rfkill state."
+        warn "After reboot, wlan0 will come up as the AP automatically."
+    fi
 fi
 
 # --- 1.5i: NM dispatcher watchdog (AP↔STA fallback) ------------
