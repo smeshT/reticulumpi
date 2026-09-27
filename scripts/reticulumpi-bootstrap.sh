@@ -586,37 +586,15 @@ sudo mkdir -p /etc/NetworkManager/dispatcher.d/pre-down.d
 # new STA profile and the cycle repeats.
 sudo tee /etc/NetworkManager/dispatcher.d/pre-down.d/10-wlan0-fallback > /dev/null <<'EOF'
 #!/bin/bash
-# Digipi single-wlan0 AP↔STA fallback watchdog
-# Fires when wlan0 loses its STA link. Brings up the AP fallback so the
-# operator can still reach the box to re-configure.
-#
-# Trigger: NetworkManager emits 'down' for wlan0 when the STA link drops.
-# Safe because: the interface is already released at 'down' time — no
-# conflict with wpa_supplicant/NM's own STA teardown.
-
+# Digipi single-wlan0 AP-STA fallback watchdog
+# Fires when wlan0 goes down. Activates the hotspot as fallback.
 IFACE="$1"
 ACTION="$2"
-LOG_PREFIX="[wlan0-fallback]"
-
-# Only act on wlan0 going down while the reticulumpi-sta profile is active.
 if [ "$IFACE" != "wlan0" ] || [ "$ACTION" != "down" ]; then
     exit 0
 fi
-
-# Only fire if reticulumpi-sta is the active connection.
-# If hotspot is already active (operator deliberately in AP mode), skip.
-ACTIVE_CONN=$(nmcli -t -f NAME connection show --active 2>/dev/null | grep -v '^$' | head -1)
-if [ "$ACTIVE_CONN" != "reticulumpi-sta" ]; then
-    logger -t wlan0-fallback "not reticulumpi-sta ($ACTIVE_CONN) — nothing to do"
-    exit 0
-fi
-
-logger -t wlan0-fallback "wlan0 STA link down — activating AP fallback"
-nmcli connection up reticulumpi-hotspot 2>/dev/null && \
-    logger -t wlan0-fallback "AP fallback activated (reticulumpi-hotspot up)" || \
-    logger -t wlan0-fallback "AP fallback failed"
-
-exit 0
+ip addr flush dev wlan0 2>/dev/null
+nmcli connection up reticulumpi-hotspot 2>/dev/null
 EOF
 
 sudo chmod +x /etc/NetworkManager/dispatcher.d/pre-down.d/10-wlan0-fallback
