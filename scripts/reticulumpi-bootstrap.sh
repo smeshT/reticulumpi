@@ -408,6 +408,14 @@ else
     ok "NM: ifupdown managed already true"
 fi
 
+# Ensure WiFi radio is enabled (NM tracks its own rfkill state; defaults to off on some images)
+if nmcli radio wifi 2>/dev/null | grep -q "disabled"; then
+    sudo nmcli radio wifi on
+    ok "NM: WiFi radio enabled"
+else
+    ok "NM: WiFi radio already enabled"
+fi
+
 # Ensure /var/lib/NetworkManager/ exists with WiFi enabled
 sudo mkdir -p /var/lib/NetworkManager
 if [ ! -f /var/lib/NetworkManager/NetworkManager.state ]; then
@@ -417,6 +425,10 @@ if [ ! -f /var/lib/NetworkManager/NetworkManager.state ]; then
 else
     ok "NM state file already exists"
 fi
+
+# Remove any stale wifi-rfkill config that used the wrong key name
+# (wifi.rfkill-state is not supported in NM 1.42; use 'nmcli radio wifi on' instead)
+sudo rm -f /etc/NetworkManager/conf.d/wifi-rfkill.conf
 
 # Clear rfkill saved state for wlan0 so systemd-rfkill doesnt re-block it.
 # Also mask systemd-rfkill so it cant undo our rfkill clearing.
@@ -524,6 +536,9 @@ done
 if [ $WAIT_COUNT -ge 15 ]; then
     warn "wlan0 did not become available within 30s — check rfkill and brcmfmac firmware"
 fi
+
+# Flush any stale IP left by a previous hostapd run so NM can claim wlan0 cleanly.
+sudo ip addr flush dev wlan0 2>/dev/null || true
 
 if [ -n "$RETICULUMPI_CLIENT_SSID" ]; then
     # Credentials provided — try STA first, fall back to hotspot on failure.
