@@ -19,6 +19,14 @@
 
     <label for="password">Password:</label>
     <input type="password" name="password" id="password">
+    <label><input type="checkbox" onclick="togglePassword()"> Show password</label>
+
+    <script>
+    function togglePassword() {
+        var p = document.getElementById('password');
+        p.type = p.type === 'password' ? 'text' : 'password';
+    }
+    </script>
 
     <br><br>
 
