@@ -29,8 +29,8 @@
       },
       {
         "name": "enable-linger.service",
-        "required": true,
-        "note": "keeps user@1000.service alive without login sessions; prevents PulseAudio from dying when all SSH sessions close"
+        "required": false,
+        "note": "remediation only: installs a oneshot that runs `loginctl enable-linger pi`. Not required where Linger=yes is already set. The real signal is loginctl show-user pi -p Linger, not this unit's ActiveState."
       },
       {
         "name": "pulseaudio-suspend-fix.service",

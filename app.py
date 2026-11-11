@@ -1162,9 +1162,43 @@ def update_from_server():
             overlay_units = os.path.join(LAUNCHER_DIR, "g90-image", "systemd-units")
             if os.path.isdir(overlay_units):
                 import glob as _glob
+                # Units the overlay owns a reference copy of but must NEVER
+                # push to a deployed box:
+                #
+                #   zerotier-one  - this is how the operator reaches the box.
+                #                   The repo copy carries Type=notify and
+                #                   AmbientCapabilities; the deployed unit is
+                #                   Type=simple. Swapping it can leave the
+                #                   box unreachable on its ZT address
+                #                   mid-update, with no way back in.
+                #   novnc-session - carries RuntimeDirectory=1000 / 0700 on
+                #                   the repo copy that the deployed unit does
+                #                   not have; same reachability risk (noVNC is
+                #                   the operator's desktop).
+                #
+                # Both stay in the repo as documentation of intent. They are
+                # applied by hand / by the image, never by Update.
+                NEVER_PUSH = {"zerotier-one.service", "novnc-session.service"}
+
                 for src in _glob.glob(os.path.join(overlay_units, "*.service")):
                     svc = os.path.basename(src)
                     dst = os.path.join("/etc/systemd/system/", svc)
+                    if svc in NEVER_PUSH:
+                        log_lines.append(
+                            f"kept existing {svc} (transport unit, not updated)")
+                        continue
+                    # Never overwrite the unit that is running THIS process.
+                    # The update flow restarts the launcher at the end; if we
+                    # clobbered its own unit file first, daemon-reload plus
+                    # that restart would swap the running unit for one we
+                    # never validated on this box. g90digi's installed copy
+                    # is a deliberately stripped variant (LAUNCHER_PORT=80,
+                    # fewer comments), and the repo copy is newer, so the
+                    # mtime check WOULD have fired. Skip it and log clearly.
+                    if svc == os.path.basename(LAUNCHER_SERVICE):
+                        log_lines.append(
+                            f"skipped {svc} (running unit; update it by hand)")
+                        continue
                     # Only copy if the source is newer or destination doesn't exist
                     if not os.path.exists(dst) or \
                        os.path.getmtime(src) > os.path.getmtime(dst):
@@ -1173,6 +1207,38 @@ def update_from_server():
                             capture_output=True, text=True, timeout=5
                         )
                         log_lines.append(f"installed {svc}")
+                # --- drop-ins (*.service.d/override.conf) -------------------
+                # lxmd's BindsTo=/After= on reticulumhf-rnsd live in a drop-in,
+                # not the unit. Without it lxmd can outlive or race the shared
+                # instance -- the failure that put rnsd into a bad state.
+                # The unit alone is not the whole story, so the drop-in has to
+                # travel with it.
+                for _dd in _glob.glob(os.path.join(overlay_units,
+                                                   "*.service.d", "override.conf")):
+                    _svcname = os.path.basename(os.path.dirname(_dd))
+                    _ddir = os.path.join("/etc/systemd/system",
+                                         _svcname + ".d")
+                    _ddst = os.path.join(_ddir, "override.conf")
+                    try:
+                        if (not os.path.exists(_ddst) or
+                                os.path.getmtime(_dd) > os.path.getmtime(_ddst)):
+                            subprocess.run(
+                                ["sudo", "-n", "mkdir", "-p", _ddir],
+                                capture_output=True, timeout=5
+                            )
+                            _cp = subprocess.run(
+                                ["sudo", "-n", "cp", _dd, _ddst],
+                                capture_output=True, text=True, timeout=5
+                            )
+                            if _cp.returncode == 0:
+                                log_lines.append(f"installed {_svcname}.d/override.conf")
+                            else:
+                                log_lines.append(
+                                    f"drop-in {_svcname} failed: "
+                                    f"{(_cp.stderr or '').strip()[:120]}")
+                    except Exception as _e:
+                        log_lines.append(f"drop-in {_svcname} failed: {_e}")
+
                 # Enable any new services (systemctl enable is idempotent)
                 for svc in ["enable-linger", "pulseaudio-suspend-fix"]:
                     r = subprocess.run(
