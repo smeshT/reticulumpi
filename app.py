@@ -1,6 +1,7 @@
 from flask import Flask, render_template, redirect, url_for, request, send_file
 import subprocess
 import os
+import launcher_versions
 import re
 import sys
 
@@ -16,6 +17,40 @@ LAUNCHER_DIR = os.environ.get(
 LAUNCHER_SERVICE = os.environ.get(
     "LAUNCHER_SERVICE", "g90-shared-launcher.service"
 )
+
+
+def _collect_pip_state():
+    """Return {venv: {package: version}} from the box-status collector.
+
+    Shared by the status page and the update flow so they can never
+    disagree about what's installed. Returns {} on any failure -- callers
+    must treat an empty dict as "unknown", not "nothing installed".
+    """
+    collector = os.path.join(LAUNCHER_DIR, "scripts", "collect-box-status.sh")
+    if not os.path.isfile(collector):
+        return {}
+    try:
+        cs = subprocess.run(
+            ["bash", collector],
+            capture_output=True, text=True, timeout=15,
+            env={**os.environ, "LAUNCHER_DIR": LAUNCHER_DIR},
+        )
+        if cs.returncode != 0 or not cs.stdout.strip():
+            return {}
+        status = json.loads(cs.stdout)
+    except Exception:
+        return {}
+
+    out = {}
+    for entry in status.get("pip_packages", []):
+        venv = entry.get("venv", "")
+        pkgs = {}
+        for seg in entry.get("packages", "").split(","):
+            if "==" in seg:
+                name, ver = seg.split("==", 1)
+                pkgs[name] = ver
+        out[venv] = pkgs
+    return out
 
 # Make the scripts/ dir importable so app.py can pull in
 # config_backup without invoking it as `scripts.config_backup`
@@ -948,6 +983,97 @@ def update_from_server():
                 )
             log_lines.append(f"git checkout {latest_tag} OK")
 
+            # Load the manifest that the checkout just brought down. Using
+            # the on-disk copy (rather than re-fetching latest.json) means the
+            # pins are guaranteed to match the launcher code being deployed.
+            manifest = None
+            try:
+                _mpath = os.path.join(LAUNCHER_DIR, "releases", "launcher",
+                                      f"{latest_tag}.json")
+                if os.path.isfile(_mpath):
+                    with open(_mpath) as _mf:
+                        manifest = json.load(_mf)
+                    log_lines.append(f"loaded manifest {latest_tag}")
+                else:
+                    log_lines.append(
+                        f"no manifest at {_mpath}; skipping pip convergence")
+            except Exception as _e:
+                log_lines.append(f"manifest load failed: {_e}")
+
+            # --- post-install: converge pip package versions ---------------------
+            # Bring every pipx venv in line with the manifest's exact_version
+            # pins. This is what prevents shared-instance RPC skew: the old
+            # flow only updated launcher code, so a box could sit for months
+            # with rnsd on 1.5.4 and meshchatx's venv on 1.5.2 -- every floor
+            # check green, message delivery silently broken.
+            #
+            # Ordering matters: upgrade the *server* venv first so the shared
+            # instance is already on the target version before clients move,
+            # then bounce rnsd before restarting the launcher (clients pick up
+            # the new server on their next connect).
+            #
+            # Failures are logged and non-fatal: a network hiccup must not
+            # leave the launcher half-updated. The status page will still show
+            # the drift on the next visit.
+            if manifest:
+                try:
+                    _pins = manifest.get("components", {}).get("pip_packages", [])
+                    _actual = _collect_pip_state()
+                    _plan = launcher_versions.converge_plan(_pins, _actual)
+                except Exception as _e:
+                    _plan = []
+                    log_lines.append(f"pip converge: could not read state ({_e})")
+
+                if not _plan:
+                    log_lines.append("pip converge: all venvs already at pinned versions")
+                else:
+                    # Server venv first, and within a venv put `rns` last
+                    # because lxmf/meshchatx pull rns as a dependency -- if
+                    # rns goes first the dependency resolver may move it
+                    # again and undo the pin.
+                    _plan.sort(key=lambda t: (
+                        0 if t[0] == "rns" else 1,
+                        t[0],
+                        0 if t[1] != "rns" else 1,
+                        t[1],
+                    ))
+                    for _venv, _pkg, _cur, _tgt in _plan:
+                        log_lines.append(f"pip converge: {_venv}/{_pkg} {_cur} -> {_tgt}")
+                        _py = os.path.join(os.path.expanduser("~"), ".local",
+                                           "pipx", "venvs", _venv, "bin", "python")
+                        if not os.path.isfile(_py):
+                            log_lines.append(f"  skipped: {_venv} venv missing")
+                            continue
+                        try:
+                            _r = subprocess.run(
+                                [_py, "-m", "pip", "install",
+                                 "--disable-pip-version-check", "-q",
+                                 f"{_pkg}=={_tgt}"],
+                                capture_output=True, text=True, timeout=180
+                            )
+                            if _r.returncode == 0:
+                                log_lines.append(f"  {_pkg}=={_tgt} installed")
+                            else:
+                                log_lines.append(
+                                    f"  FAILED: {(_r.stderr or _r.stdout).strip()[:300]}")
+                        except Exception as _e:
+                            log_lines.append(f"  FAILED: {_e}")
+
+                    # Bounce rnsd so the new server code is live and clients
+                    # reconnect against it. Non-fatal if it fails.
+                    try:
+                        _rr = subprocess.run(
+                            ["sudo", "-n", "systemctl", "restart", "reticulumhf-rnsd"],
+                            capture_output=True, text=True, timeout=30
+                        )
+                        if _rr.returncode == 0:
+                            log_lines.append("rnsd restarted")
+                        else:
+                            log_lines.append(
+                                f"rnsd restart failed: {(_rr.stderr or '').strip()[:200]}")
+                    except Exception as _e:
+                        log_lines.append(f"rnsd restart failed: {_e}")
+
             # --- post-install: install new systemd units from overlay -----------
             # New releases may add service files (enable-linger,
             # pulseaudio-suspend-fix, etc.) that live in the overlay
@@ -1109,20 +1235,24 @@ def update_from_server():
             for p in box_status.get("pip_packages", [])
         }
         for spec in manifest_pkgs:
-            venv = spec["venv"]
-            pkg = spec["package"]
-            min_v = spec.get("min_version", "")
-            installed = actual_pkgs_by_venv.get(venv, {}).get(pkg)
-            if installed is None:
-                ok = False
-                detail = "not installed"
-            else:
-                # Lexical compare is fine for semver tags; ship a real
-                # version compare if we ever care about 1.10 > 1.9.
-                ok = installed >= min_v
-                detail = f"{installed}" + (f" (need >= {min_v})" if not ok else "")
+            if spec.get("optional"):
+                continue
+            ok, detail, pkg, venv = launcher_versions.check_pip_spec(
+                spec, actual_pkgs_by_venv
+            )
             mark = "✓" if ok else "✗"
             component_rows.append((ok, f"{mark} {pkg} ({venv})" + (f"  {detail}" if detail else "")))
+
+        # Cross-venv consistency. A floor check cannot detect drift: 1.5.2
+        # satisfies ">= 1.4.0" against a 1.5.4 server, which is exactly the
+        # shared-instance RPC skew that silently breaks message delivery.
+        # See memory/2026-11-11-rns-shadowing-version-skew.md
+        for ok, detail, label in launcher_versions.check_consistency(
+            manifest["components"].get("pip_consistency", []),
+            actual_pkgs_by_venv,
+        ):
+            mark = "✓" if ok else "✗"
+            component_rows.append((ok, f"{mark} {label}  {detail}"))
 
         # config files
         for spec in manifest["components"].get("config_files", []):
@@ -1379,18 +1509,24 @@ def _render_status_page():
             for p in box_status.get("pip_packages", [])
         }
         for spec in manifest_pkgs:
-            venv = spec["venv"]
-            pkg = spec["package"]
-            min_v = spec.get("min_version", "")
-            installed = actual_pkgs_by_venv.get(venv, {}).get(pkg)
-            if installed is None:
-                ok = False
-                detail = "not installed"
-            else:
-                ok = installed >= min_v
-                detail = f"{installed}" + (f" (need >= {min_v})" if not ok else "")
+            if spec.get("optional"):
+                continue
+            ok, detail, pkg, venv = launcher_versions.check_pip_spec(
+                spec, actual_pkgs_by_venv
+            )
             mark = "✓" if ok else "✗"
             component_rows.append((ok, f"{mark} {pkg} ({venv})" + (f"  {detail}" if detail else "")))
+
+        # Cross-venv consistency. A floor check cannot detect drift: 1.5.2
+        # satisfies ">= 1.4.0" against a 1.5.4 server, which is exactly the
+        # shared-instance RPC skew that silently breaks message delivery.
+        # See memory/2026-11-11-rns-shadowing-version-skew.md
+        for ok, detail, label in launcher_versions.check_consistency(
+            manifest["components"].get("pip_consistency", []),
+            actual_pkgs_by_venv,
+        ):
+            mark = "✓" if ok else "✗"
+            component_rows.append((ok, f"{mark} {label}  {detail}"))
 
         # config files
         for spec in manifest["components"].get("config_files", []):

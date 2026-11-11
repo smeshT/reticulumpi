@@ -75,8 +75,14 @@ for u in ["g90-shared-launcher", "reticulumhf-rnsd", "meshchatx", "lxmd"]:
 # pipx venvs on this image don't ship a `pip` binary in bin/ — only the
 # entry-point scripts (rnsd, lxmd, meshchatx, etc). pip must be invoked via
 # the venv's python interpreter as `python -m pip`.
+#
+# lxmf MUST be in this list. It was omitted until 2026-11-11, which is why
+# g90digi carried a 1.5.2 lxmf venv alongside a 1.5.4 rns venv and nothing
+# on the status page noticed. Any venv that carries its own RNS is a
+# potential source of shared-instance RPC skew, so collect them all.
+VENS_TO_SCAN = ["rns", "lxmf", "reticulum-meshchatx"]
 pkgs_by_venv = []
-for v in ["rns", "reticulum-meshchatx"]:
+for v in VENS_TO_SCAN:
     py_bin = os.path.join(pipx_home, "pipx", "venvs", v, "bin", "python")
     pkgs = []
     if os.path.isfile(py_bin):
