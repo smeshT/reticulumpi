@@ -1,4 +1,4 @@
-from flask import Flask, render_template, redirect, url_for, request, send_file
+from flask import Flask, render_template, redirect, url_for, request, send_file, escape
 import subprocess
 import os
 import launcher_versions
@@ -577,7 +577,7 @@ def stop_patmenu():
 
 @app.route("/restart-meshchatx", methods=["POST"])
 def restart_meshchatx():
-    """Restart MeshChatX only (not rnsd, not the legacy meshchat).
+    """Restart the Reticulum stack: rnsd, then MeshChatX, then lxmd.
 
     MeshChatX is the chat client on port 8000 (was 9100 pre-2026-09-08;
     flipped to match the legacy meshchat port so existing bookmarks
@@ -593,9 +593,17 @@ def restart_meshchatx():
     error page rather than silently failing — clicking Restart should
     not look successful when the underlying service is missing.
 
-    Helper: /usr/local/bin/restart-meshchatx (also exposed for the
-    wifi captive portal button). Same effect as this route, just
-    invokable from the shell without going through Flask.
+    Delegates to scripts/restart-meshchatx.sh, which enforces the
+    dependency order rnsd -> meshchatx -> lxmd. Restarting meshchatx
+    alone leaves it attached to a bouncing shared instance, and it does
+    not retry on its own. That script is also the source installed at
+    /usr/local/bin/restart-meshchatx for the wifi captive portal button,
+    so both entry points now share one implementation.
+
+    Unlike run_script() (fire-and-forget), we wait for the script and
+    show its output. A restart that silently fails is worse than one
+    that reports an error: the operator otherwise cannot tell whether
+    the button worked.
 
     Replaces the legacy /restart-meshchat (post 2026-09-08; the
     legacy meshchat was retired because MeshChatX subsumes it).
@@ -612,7 +620,47 @@ def restart_meshchatx():
             "<p style='margin-top:2em;'>"
             "<a href='/'>Back to launcher</a></p>"
         )
-    systemctl("restart", "meshchatx.service")
+    script = os.path.join(SCRIPTS, "restart-meshchatx.sh")
+    if not os.path.isfile(script):
+        # Older boxes have the helper only at /usr/local/bin. Fall back
+        # rather than break the button outright.
+        script = "/usr/local/bin/restart-meshchatx"
+        if not os.path.isfile(script):
+            return (
+                "<h1>restart-meshchatx not found</h1>"
+                f"<p>Looked for <code>{SCRIPTS}/restart-meshchatx.sh</code> "
+                "and <code>/usr/local/bin/restart-meshchatx</code>.</p>"
+                "<p style='margin-top:2em;'>"
+                "<a href='/'>Back to launcher</a></p>"
+            )
+
+    try:
+        # 90s: rnsd bounce + 0.5s settle + meshchatx start + 3s verify.
+        # Generous enough for a slow SD card, short enough not to wedge
+        # the browser.
+        proc = subprocess.run(
+            [script], capture_output=True, text=True, timeout=90
+        )
+    except subprocess.TimeoutExpired:
+        return (
+            "<h1>Restart timed out</h1>"
+            "<p>The restart script did not finish within 90 seconds. "
+            "Check the service states on the box.</p>"
+            "<p style='margin-top:2em;'>"
+            "<a href='/'>Back to launcher</a></p>"
+        )
+
+    if proc.returncode != 0:
+        combined = (proc.stdout or "") + (proc.stderr or "")
+        return (
+            "<h1>Restart failed</h1>"
+            "<pre style='white-space:pre-wrap;font-size:0.9em;'>"
+            f"{escape(combined[-4000:])}"
+            "</pre>"
+            "<p style='margin-top:2em;'>"
+            "<a href='/'>Back to launcher</a></p>"
+        )
+
     return redirect(url_for("index"))
 
 
@@ -1080,6 +1128,37 @@ def update_from_server():
             # under g90-image/systemd-units/. Copy any new .service files
             # to /etc/systemd/system/ and enable them. Idempotent: a
             # service already installed and enabled is a no-op.
+            # --- post-install: refresh shell helpers in /usr/local/bin -------
+            # The wifi captive portal calls /usr/local/bin/restart-meshchatx
+            # directly (it is not a Flask route, so the launcher script path
+            # is invisible to it). Without this, the launcher and the portal
+            # would run DIFFERENT restart implementations -- which is exactly
+            # the split that left lxmd stopped for five weeks: the portal
+            # version never restarted rnsd, the launcher version never
+            # restarted lxmd. Both now share one source.
+            for _helper in ["restart-meshchatx"]:
+                _src = os.path.join(LAUNCHER_DIR, "g90-image", "systemd-units",
+                                    _helper)
+                _dst = os.path.join("/usr/local/bin", _helper)
+                if os.path.isfile(_src):
+                    _newer = (not os.path.exists(_dst) or
+                              os.path.getmtime(_src) > os.path.getmtime(_dst))
+                    if _newer:
+                        _cp = subprocess.run(
+                            ["sudo", "-n", "cp", _src, _dst],
+                            capture_output=True, text=True, timeout=10
+                        )
+                        if _cp.returncode == 0:
+                            subprocess.run(
+                                ["sudo", "-n", "chmod", "755", _dst],
+                                capture_output=True, timeout=5
+                            )
+                            log_lines.append(f"refreshed /usr/local/bin/{_helper}")
+                        else:
+                            log_lines.append(
+                                f"could not refresh {_helper}: "
+                                f"{(_cp.stderr or '').strip()[:150]}")
+
             overlay_units = os.path.join(LAUNCHER_DIR, "g90-image", "systemd-units")
             if os.path.isdir(overlay_units):
                 import glob as _glob
@@ -1224,6 +1303,31 @@ def update_from_server():
             ok = state == "active"
             mark = "✓" if ok else "✗"
             component_rows.append((ok, f"{mark} {unit_name:<28} {state}"))
+
+        # ExecStart argv: verify required flags actually reached the process.
+        # A unit reporting `active` tells you nothing about whether it got
+        # its arguments -- a stripped ExecStart looks perfectly healthy while
+        # doing the wrong thing (g90digi ran without --propagation-node for
+        # weeks and every status check said "active").
+        _argv_map = box_status.get("unit_argv", {})
+        for _spec in manifest["components"].get("unit_flags", []):
+            _unit = _spec.get("unit", "")
+            _want = _spec.get("require_flags", [])
+            _argv = _argv_map.get(_unit, "")
+            if not _argv:
+                component_rows.append(
+                    (False, f"\u2717 {_unit} argv      not readable"))
+                continue
+            _missing = [f for f in _want if f not in _argv]
+            if _missing:
+                component_rows.append((
+                    False,
+                    f"\u2717 {_unit} argv      missing "
+                    + ", ".join(_missing),
+                ))
+            else:
+                component_rows.append(
+                    (True, f"\u2713 {_unit} argv      {' '.join(_want)}"))
 
         # pip packages
         manifest_pkgs = manifest["components"].get("pip_packages", [])

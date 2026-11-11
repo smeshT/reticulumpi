@@ -108,6 +108,32 @@
         "path": "/home/pi/shared_launcher/scripts/stop_pavucontrol.sh",
         "required": true
       }
+    ],
+    "unit_flags": [
+      {
+        "unit": "lxmd",
+        "require_flags": [
+          "--propagation-node",
+          "--config",
+          "--service"
+        ],
+        "note": "absent backslashes in ExecStart silently drop these; unit still reports active"
+      },
+      {
+        "unit": "reticulumhf-rnsd",
+        "require_flags": [
+          "rnsd"
+        ],
+        "note": "sanity: ExecStart must point at an rnsd binary"
+      },
+      {
+        "unit": "meshchatx",
+        "require_flags": [
+          "--headless",
+          "--port"
+        ],
+        "note": "sanity: headless mode and a listening port"
+      }
     ]
   }
 }

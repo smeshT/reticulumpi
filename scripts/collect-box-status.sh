@@ -70,6 +70,31 @@ for u in ["g90-shared-launcher", "reticulumhf-rnsd", "meshchatx", "lxmd"]:
         state = "unknown"
     units.append({"name": u, "state": state})
 
+# --- systemd unit ExecStart argv (flag-presence check) ------------------------
+#
+# A unit can be `active` while running with NO arguments, which is how both
+# m5boss and g90digi lost their propagation nodes: a hand-edited ExecStart
+# with missing line-continuation backslashes made systemd silently discard
+# --propagation-node, --config and --service. State alone cannot catch this;
+# only the argv can. Emitted as {"unit": argv-string} for units the manifest
+# wants to verify.
+#
+# `systemctl show -p ExecStart` outputs a structured dump; the argv[] field
+# holds the real command line.
+unit_argv = {}
+for u in ["lxmd", "reticulumhf-rnsd", "meshchatx"]:
+    try:
+        out = subprocess.run(
+            ["systemctl", "show", f"{u}.service", "-p", "ExecStart"],
+            capture_output=True, text=True, timeout=3
+        ).stdout
+        argv = ""
+        if "argv[]=" in out:
+            argv = out.split("argv[]=", 1)[1].split(" ;", 1)[0].strip()
+        unit_argv[u] = argv
+    except Exception:
+        unit_argv[u] = ""
+
 # --- pip packages (per venv) --------------------------------------------------
 
 # pipx venvs on this image don't ship a `pip` binary in bin/ — only the
@@ -134,6 +159,7 @@ for f in [
 print(json.dumps({
     "launcher_version": launcher_version,
     "systemd_units": units,
+    "unit_argv": unit_argv,
     "pip_packages": pkgs_by_venv,
     "config_files": files,
 }, indent=None))

@@ -1,0 +1,139 @@
+{
+  "release": "v1.1.1",
+  "release_date": "2026-11-11",
+  "image_baseline": "pi-os-lite-2026-09-10",
+  "channel": "https://github.com/smeshT/reticulumpi.git",
+  "branch": "main",
+  "components": {
+    "launcher": {
+      "type": "github-pull",
+      "auto_update": true,
+      "source_path": "/"
+    },
+    "systemd_units": [
+      {
+        "name": "g90-shared-launcher.service",
+        "required": true
+      },
+      {
+        "name": "reticulumhf-rnsd.service",
+        "required": true
+      },
+      {
+        "name": "meshchatx.service",
+        "required": true
+      },
+      {
+        "name": "lxmd.service",
+        "required": true
+      },
+      {
+        "name": "enable-linger.service",
+        "required": true,
+        "note": "keeps user@1000.service alive without login sessions; prevents PulseAudio from dying when all SSH sessions close"
+      },
+      {
+        "name": "pulseaudio-suspend-fix.service",
+        "required": false,
+        "note": "one-shot: disables module-suspend-on-idle so USB audio stays visible to JS8Call"
+      }
+    ],
+    "pip_packages": [
+      {
+        "venv": "rns",
+        "package": "rns",
+        "exact_version": "1.6.0",
+        "note": "shared instance is the source of truth; clients must match it"
+      },
+      {
+        "venv": "rns",
+        "package": "lxmf",
+        "exact_version": "1.3.0",
+        "note": "rnsd needs LXMF for on-network interface discovery"
+      },
+      {
+        "venv": "lxmf",
+        "package": "rns",
+        "exact_version": "1.6.0"
+      },
+      {
+        "venv": "lxmf",
+        "package": "lxmf",
+        "exact_version": "1.3.0"
+      },
+      {
+        "venv": "reticulum-meshchatx",
+        "package": "rns",
+        "exact_version": "1.6.0"
+      },
+      {
+        "venv": "reticulum-meshchatx",
+        "package": "reticulum-meshchatx",
+        "exact_version": "4.10.7"
+      }
+    ],
+    "pip_consistency": [
+      {
+        "package": "rns",
+        "venvs": [
+          "rns",
+          "lxmf",
+          "reticulum-meshchatx"
+        ],
+        "required_in": [
+          "rns",
+          "reticulum-meshchatx"
+        ],
+        "note": "the shared instance and every connected client must speak the same RNS RPC protocol; a floor check cannot detect this drift"
+      }
+    ],
+    "config_files": [
+      {
+        "path": "/home/pi/.reticulum/config",
+        "required": true
+      },
+      {
+        "path": "/etc/systemd/system/meshchatx.service",
+        "required": true
+      },
+      {
+        "path": "/usr/local/bin/restart-meshchatx",
+        "required": true
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/start_pavucontrol.sh",
+        "required": true
+      },
+      {
+        "path": "/home/pi/shared_launcher/scripts/stop_pavucontrol.sh",
+        "required": true
+      }
+    ],
+    "unit_flags": [
+      {
+        "unit": "lxmd",
+        "require_flags": [
+          "--propagation-node",
+          "--config",
+          "--service"
+        ],
+        "note": "absent backslashes in ExecStart silently drop these; unit still reports active"
+      },
+      {
+        "unit": "reticulumhf-rnsd",
+        "require_flags": [
+          "rnsd"
+        ],
+        "note": "sanity: ExecStart must point at an rnsd binary"
+      },
+      {
+        "unit": "meshchatx",
+        "require_flags": [
+          "--headless",
+          "--port"
+        ],
+        "note": "sanity: headless mode and a listening port"
+      }
+    ]
+  }
+}

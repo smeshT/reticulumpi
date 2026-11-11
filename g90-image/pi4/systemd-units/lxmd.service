@@ -1,19 +1,62 @@
 [Unit]
-Description=LXMF Propagation Node Daemon (lxmd) for g90test
+Description=LXMF Propagation Node Daemon (lxmd)
+Documentation=https://github.com/markqvist/LXMF
 After=network-online.target zerotier-one.service reticulumhf-rnsd.service
-Wants=zerotier-one.service reticulumhf-rnsd.service
+Wants=network-online.target zerotier-one.service
+# lxmd must never outlive or outrun the shared instance. BindsTo= means
+# stopping rnsd stops lxmd; After=/Requires= mean lxmd waits for rnsd to
+# be up before connecting. Without this, lxmd can win the race to the
+# AF_UNIX @rns/default socket and rnsd then fails to load its interfaces.
+Requires=reticulumhf-rnsd.service
+BindsTo=reticulumhf-rnsd.service
 
 [Service]
 Type=simple
 User=pi
+Group=pi
 Environment=HOME=/home/pi
-ExecStart=/home/pi/.local/bin/lxmd
+
+# --- ExecStart: EVERY continuation line MUST end in a backslash. ---
+#
+# This unit was shipped as a bare `ExecStart=/home/pi/.local/bin/lxmd`
+# with no arguments. Hand-edits added the flags below but dropped the
+# backslashes, which systemd silently parses as invalid directives and
+# discards. The result on g90digi and m5boss was identical and invisible:
+#
+#   * no --propagation-node  -> lxmd ran as a plain LXMF router, no PN
+#   * no --config            -> fell back to the default config path and
+#                               treated ~/.lxmd/config (a FILE) as a
+#                               directory: NotADirectoryError
+#                               '/home/pi/.lxmd/config/storage'
+#                               -> 615 restarts in a crash loop
+#   * no --service           -> output went to the journal only, so
+#                               ~/.lxmd/logfile sat frozen and every
+#                               `journalctl -u lxmd` showed only
+#                               Started/Stopped, hiding the fault
+#
+# Verify after any edit:
+#   systemctl show lxmd.service -p ExecStart
+# argv[] must list all four flags. If it shows only the binary, the
+# backslashes are missing again.
+ExecStart=/home/pi/.local/bin/lxmd \
+    --rnsconfig /home/pi/.reticulum \
+    --propagation-node \
+    --config /home/pi/.lxmd \
+    --service
+
 Restart=on-failure
 RestartSec=5
+# A crash-looping unit hammers the shared instance. Cap it: 5 starts in
+# 60s and systemd gives up instead of restarting forever.
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=read-only
+# lxmd writes messagestore, node_stats, peers, logfile, ratchets
 ReadWritePaths=/home/pi/.lxmd /home/pi/.reticulum
+PrivateTmp=true
 
 [Install]
 WantedBy=multi-user.target
