@@ -4,6 +4,17 @@ import os
 import launcher_versions
 import re
 import sys
+# Module-level so helpers defined near the top can use them. Several
+# functions below still do local `import json` / `import glob`; those are
+# harmless duplicates, NOT the source of truth. A helper that assumes a
+# module-level import which only exists inside another function fails with
+# NameError -- and if it is wrapped in `except Exception: return {}` that
+# failure is completely silent. That is exactly how the pip convergence
+# step no-opped on v1.1.2 while every status check looked fine.
+import json
+import glob
+import base64
+import urllib.request
 
 app = Flask(__name__)
 
@@ -38,8 +49,16 @@ def _collect_pip_state():
         if cs.returncode != 0 or not cs.stdout.strip():
             return {}
         status = json.loads(cs.stdout)
-    except Exception:
-        return {}
+    except Exception as e:
+        # Do NOT return a silent empty dict. An empty result is
+        # indistinguishable from "nothing installed", which makes the
+        # caller skip convergence entirely and report success -- exactly
+        # how v1.1.2 shipped a NameError that disabled the whole pip step
+        # while every status check stayed green. Log and re-raise as a
+        # sentinel the caller can report.
+        sys.stderr.write(
+            f"_collect_pip_state failed: {type(e).__name__}: {e}\n")
+        raise
 
     out = {}
     for entry in status.get("pip_packages", []):
@@ -1069,8 +1088,13 @@ def update_from_server():
                     _actual = _collect_pip_state()
                     _plan = launcher_versions.converge_plan(_pins, _actual)
                 except Exception as _e:
+                    # Surface loudly: this is the layer that silently
+                    # disabled convergence before. A failure here must
+                    # never look like "nothing to do".
                     _plan = []
-                    log_lines.append(f"pip converge: could not read state ({_e})")
+                    log_lines.append(
+                        f"pip converge: ERROR reading state "
+                        f"({type(_e).__name__}: {_e}) -- versions NOT checked")
 
                 if not _plan:
                     log_lines.append("pip converge: all venvs already at pinned versions")
