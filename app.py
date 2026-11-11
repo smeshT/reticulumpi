@@ -1069,82 +1069,52 @@ def update_from_server():
 
             # --- post-install: converge pip package versions ---------------------
             # Bring every pipx venv in line with the manifest's exact_version
-            # pins. This is what prevents shared-instance RPC skew: the old
-            # flow only updated launcher code, so a box could sit for months
-            # with rnsd on 1.5.4 and meshchatx's venv on 1.5.2 -- every floor
-            # check green, message delivery silently broken.
+            # pins. This is what prevents shared-instance RPC skew: a box can
+            # otherwise sit for months with rnsd on 1.5.4 and meshchatx's venv
+            # on 1.5.2 -- every floor check green, delivery silently broken.
             #
-            # Ordering matters: upgrade the *server* venv first so the shared
-            # instance is already on the target version before clients move,
-            # then bounce rnsd before restarting the launcher (clients pick up
-            # the new server on their next connect).
+            # IMPORTANT -- why this runs as a SEPARATE PROCESS against the
+            # checked-out tree:
             #
-            # Failures are logged and non-fatal: a network hiccup must not
-            # leave the launcher half-updated. The status page will still show
-            # the drift on the next visit.
+            # The code executing this request is the PREVIOUS version's code.
+            # The git checkout above changed the files on disk, but the running
+            # Python process already imported app.py and cannot re-import it.
+            # So any convergence logic written inline here is by definition the
+            # OLD logic. Worse, fixes to that logic can never take effect on
+            # the very update that installs them -- v1.1.3's convergence fix
+            # was unreachable that way, and the update reported success while
+            # changing nothing.
+            #
+            # Running tools/converge_pip.py from the freshly checked-out tree
+            # means the NEW code always runs, on the click that installs it.
+            _conv_script = os.path.join(LAUNCHER_DIR, "tools", "converge_pip.py")
             if manifest:
-                try:
-                    _pins = manifest.get("components", {}).get("pip_packages", [])
-                    _actual = _collect_pip_state()
-                    _plan = launcher_versions.converge_plan(_pins, _actual)
-                except Exception as _e:
-                    # Surface loudly: this is the layer that silently
-                    # disabled convergence before. A failure here must
-                    # never look like "nothing to do".
-                    _plan = []
-                    log_lines.append(
-                        f"pip converge: ERROR reading state "
-                        f"({type(_e).__name__}: {_e}) -- versions NOT checked")
-
-                if not _plan:
-                    log_lines.append("pip converge: all venvs already at pinned versions")
-                else:
-                    # Server venv first, and within a venv put `rns` last
-                    # because lxmf/meshchatx pull rns as a dependency -- if
-                    # rns goes first the dependency resolver may move it
-                    # again and undo the pin.
-                    _plan.sort(key=lambda t: (
-                        0 if t[0] == "rns" else 1,
-                        t[0],
-                        0 if t[1] != "rns" else 1,
-                        t[1],
-                    ))
-                    for _venv, _pkg, _cur, _tgt in _plan:
-                        log_lines.append(f"pip converge: {_venv}/{_pkg} {_cur} -> {_tgt}")
-                        _py = os.path.join(os.path.expanduser("~"), ".local",
-                                           "pipx", "venvs", _venv, "bin", "python")
-                        if not os.path.isfile(_py):
-                            log_lines.append(f"  skipped: {_venv} venv missing")
-                            continue
-                        try:
-                            _r = subprocess.run(
-                                [_py, "-m", "pip", "install",
-                                 "--disable-pip-version-check", "-q",
-                                 f"{_pkg}=={_tgt}"],
-                                capture_output=True, text=True, timeout=180
-                            )
-                            if _r.returncode == 0:
-                                log_lines.append(f"  {_pkg}=={_tgt} installed")
-                            else:
-                                log_lines.append(
-                                    f"  FAILED: {(_r.stderr or _r.stdout).strip()[:300]}")
-                        except Exception as _e:
-                            log_lines.append(f"  FAILED: {_e}")
-
-                    # Bounce rnsd so the new server code is live and clients
-                    # reconnect against it. Non-fatal if it fails.
+                if os.path.isfile(_conv_script):
                     try:
-                        _rr = subprocess.run(
-                            ["sudo", "-n", "systemctl", "restart", "reticulumhf-rnsd"],
-                            capture_output=True, text=True, timeout=30
+                        _cr = subprocess.run(
+                            [sys.executable, _conv_script,
+                             "--manifest", os.path.join(
+                                 LAUNCHER_DIR, "releases", "launcher",
+                                 f"{latest_tag}.json")],
+                            capture_output=True, text=True, timeout=600
                         )
-                        if _rr.returncode == 0:
-                            log_lines.append("rnsd restarted")
-                        else:
+                        for _line in (_cr.stdout or "").splitlines():
+                            if _line.strip():
+                                log_lines.append(_line.rstrip())
+                        if _cr.returncode != 0:
                             log_lines.append(
-                                f"rnsd restart failed: {(_rr.stderr or '').strip()[:200]}")
+                                f"pip converge: FAILED (exit {_cr.returncode})")
+                            for _line in (_cr.stderr or "").splitlines()[-10:]:
+                                if _line.strip():
+                                    log_lines.append(f"  {_line.rstrip()}")
+                    except subprocess.TimeoutExpired:
+                        log_lines.append("pip converge: TIMEOUT after 600s")
                     except Exception as _e:
-                        log_lines.append(f"rnsd restart failed: {_e}")
+                        log_lines.append(
+                            f"pip converge: ERROR ({type(_e).__name__}: {_e})")
+                else:
+                    log_lines.append(
+                        f"pip converge: {_conv_script} not present; skipped")
 
             # --- post-install: install new systemd units from overlay -----------
             # New releases may add service files (enable-linger,
@@ -1239,9 +1209,13 @@ def update_from_server():
                 # travel with it.
                 for _dd in _glob.glob(os.path.join(overlay_units,
                                                    "*.service.d", "override.conf")):
-                    _svcname = os.path.basename(os.path.dirname(_dd))
-                    _ddir = os.path.join("/etc/systemd/system",
-                                         _svcname + ".d")
+                    # dirname() already yields "lxmd.service.d"; using it
+                    # verbatim. Appending another ".d" produced
+                    # /etc/systemd/system/lxmd.service.d.d, which systemd
+                    # ignores entirely -- the drop-in silently never applied.
+                    _ddname = os.path.basename(os.path.dirname(_dd))
+                    _svcname = _ddname[:-3] if _ddname.endswith(".d") else _ddname
+                    _ddir = os.path.join("/etc/systemd/system", _ddname)
                     _ddst = os.path.join(_ddir, "override.conf")
                     try:
                         if (not os.path.exists(_ddst) or
