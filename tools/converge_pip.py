@@ -37,6 +37,87 @@ import launcher_versions  # noqa: E402
 
 PIPX_VENVS = os.path.join(os.path.expanduser("~"), ".local", "pipx", "venvs")
 
+# Reticulum patches live here in the repo and are deployed to
+# ~/.reticulum/interfaces/per_hop_timeout/ on the boxes. The installer is
+# idempotent and takes --venv, so one call per RNS-bearing venv.
+PATCH_DIR = os.path.join(_ROOT, "patches", "per_hop_timeout")
+
+
+def find_rns_venvs():
+    """Return venv names whose site-packages carries its own RNS copy.
+
+    Discovered rather than taken from the manifest pins: the manifest only
+    pins the rns venv, but lxmf and reticulum-meshchatx each vendor their
+    own RNS, and an unpatched copy there silently keeps the 6s-per-hop
+    default. Presence of site-packages/RNS is the only reliable signal.
+    """
+    found = []
+    if not os.path.isdir(PIPX_VENVS):
+        return found
+    for name in sorted(os.listdir(PIPX_VENVS)):
+        lib = os.path.join(PIPX_VENVS, name, "lib")
+        if not os.path.isdir(lib):
+            continue
+        for pydir in os.listdir(lib):
+            if os.path.isdir(os.path.join(lib, pydir, "site-packages", "RNS")):
+                found.append(name)
+                break
+    return found
+
+
+def apply_rns_patches():
+    """Apply the per_hop_timeout patch to every RNS-bearing venv.
+
+    Runs AFTER pip convergence on purpose. A pinned install of rns==1.6.0
+    writes stock RNS/Link.py over the patched file, so patching first would
+    be undone by the very convergence step above.
+
+    Never raises: a failed patch must not abort an otherwise good launcher
+    update. Returns the number of venvs that failed to patch.
+    """
+    installer = os.path.join(PATCH_DIR, "install.py")
+    if not os.path.isfile(installer):
+        print("per_hop_timeout: installer not in this release; skipped")
+        return 0
+
+    venvs = find_rns_venvs()
+    if not venvs:
+        print("per_hop_timeout: no RNS-bearing venv found; skipped")
+        return 0
+
+    failures = 0
+    for venv in venvs:
+        vpath = os.path.join(PIPX_VENVS, venv)
+        try:
+            r = subprocess.run(
+                [sys.executable, installer, "--venv", vpath, "--quiet"],
+                capture_output=True, text=True, timeout=120,
+            )
+        except subprocess.TimeoutExpired:
+            print(f"per_hop_timeout: {venv}: TIMEOUT")
+            failures += 1
+            continue
+        except Exception as e:
+            print(f"per_hop_timeout: {venv}: ERROR ({type(e).__name__}: {e})")
+            failures += 1
+            continue
+
+        if r.returncode == 0:
+            print(f"per_hop_timeout: {venv}: patched")
+        else:
+            print(f"per_hop_timeout: {venv}: FAILED (exit {r.returncode})")
+            for line in ((r.stderr or "") + (r.stdout or "")).splitlines()[-5:]:
+                if line.strip():
+                    print(f"  {line.rstrip()}")
+            failures += 1
+
+    if failures:
+        print(f"per_hop_timeout: {failures} venv(s) NOT patched -- "
+              "HF links will fall back to the stock 6s/hop timeout")
+    else:
+        print(f"per_hop_timeout: patched {len(venvs)} venv(s)")
+    return failures
+
 
 def collect_state(venvs):
     """Return {venv: {package: version}} by asking each venv's own python.
@@ -163,7 +244,9 @@ def main():
             print(f"  {venv}/{pkg}: {cur or 'absent'} (want {tgt})")
         return 1
     print("pip converge: all venvs at pinned versions")
-    return 1 if failed else 0
+
+    patch_failures = apply_rns_patches()
+    return 1 if (failed or patch_failures) else 0
 
 
 if __name__ == "__main__":
